@@ -1,0 +1,21 @@
+Package: scpost
+Title: Simulates single-cell datasets from input data
+Version: 1.0
+Authors@R: 
+    person(given = "Nghia",
+           family = "Millard",
+           role = c("aut", "cre"),
+           email = "nghiamillard10@gmail.com",
+           comment = c(ORCID = 0000-0002-0518-7674))
+Description: Investigators in single-cell experiments generally wish to maximize
+    their power to detect effects, such as associating a disease with the
+    frequency of a cell-state. The scPOST famework allows investigators to simulate
+    new single-cell datasets from input data in order to mimic their planned experimental
+    setting. scPOST allows users to modify their study design so that they may learn how
+    changing their study design will affect their power to detect shifts in cell-state
+    frequencies across conditions (e.g. case-control status).
+License: GPL-3
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.1
