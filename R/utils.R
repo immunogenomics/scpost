@@ -1,3 +1,15 @@
+#' Pipe operator
+#'
+#' See \code{magrittr::\link[magrittr:pipe]{\%>\%}} for details.
+#'
+#' @name %>%
+#' @rdname pipe
+#' @keywords internal
+#' @export
+#' @importFrom magrittr %>%
+#' @usage lhs \%>\% rhs
+NULL
+
 
 insertElems <- function(vect, pos, elems){
   l <- length(vect)
@@ -22,10 +34,20 @@ zero_range <- function(x, tol = .Machine$double.eps ^ 0.5) {
   isTRUE(all.equal(x[1], x[2], tolerance = tol))
 }
 
+#' Calculate a binomial confidence interval
+#'
+#' Given an observed probability (p) and a number of trials (n), calculate a z%
+#' binomial confidence interval
+#'
+#' @export
 calcBinomCI <- function(p, n, z = 1.96) {
    return(z * sqrt((p * (1 - p))/n))
 }
 
+#' Build an Annoy object 
+#'
+#' @importFrom methods new
+#' @importFrom RcppAnnoy AnnoyEuclidean AnnoyAngular AnnoyManhattan AnnoyHamming
 AnnoyBuildObj <- function(data.use, metric = "euclidean", n.trees = 50){
     l <- ncol(x = data.use)
     annoyObj <- switch(EXPR = metric, 
@@ -41,13 +63,16 @@ AnnoyBuildObj <- function(data.use, metric = "euclidean", n.trees = 50){
     return(annoyObj)
 }
 
+#' Find nearest-neighbors of elements in an Annoy Object 
+#'
+#' @importFrom parallel mclapply
 AnnoyGetNN <- function(obj, query, k.param = 30, search.k = -1, get.distance = TRUE, mc.cores = 2){
     n <- nrow(x = query)
     cosine_dist <- methods::is(obj, "Rcpp_AnnoyAngular")
     nn.idx <- mclapply(X = 1:n, function(x){
         nn <- obj$getNNsByVectorList(query[x, ], k.param, search.k, get.distance)
         if(cosine_dist){
-            nn$distance <- 0.5 * (res$distance * res$distance)
+            nn$distance <- 0.5 * (nn$distance * nn$distance)
         }
         list(nn$item + 1, nn$distance)
     }, mc.cores = mc.cores)
@@ -60,6 +85,10 @@ AnnoyGetNN <- function(obj, query, k.param = 30, search.k = -1, get.distance = T
     return(list(nn.idx = idx, nn.dists = dist))
 }
 
+#' Build a shared nearest-neighbor graph
+#'
+#' @importFrom RANN nn2
+#' @import utils Seurat 
 BuildSNN <- function(data.use, k.param = 30, prune.SNN = 1/15, nn.eps = 0, method = "annoy", n.trees = 50,
                      search.k = -1, metric = "euclidean", mc.cores = 1){
     switch(EXPR = method, rann = {
@@ -70,6 +99,7 @@ BuildSNN <- function(data.use, k.param = 30, prune.SNN = 1/15, nn.eps = 0, metho
                           search.k = -1, get.distance = TRUE, mc.cores = mc.cores)
     })
     nn.ranked <- knn$nn.idx
-    snn_res <- Seurat:::ComputeSNN(nn_ranked = nn.ranked, prune = prune.SNN)
+#     snn_res <- Seurat:::ComputeSNN(nn_ranked = nn.ranked, prune = prune.SNN)
+    snn_res <- utils::getFromNamespace("ComputeSNN", "Seurat")(nn_ranked = nn.ranked, prune = prune.SNN)
     return(snn_res)
 }
