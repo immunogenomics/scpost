@@ -92,7 +92,7 @@ BuildSNN <- function(data.use, k.param = 30, prune.SNN = 1/15, nn.eps = 0, metho
 #' @return Returns an annoy object, as documented by RcppAnnoy
 #'
 #' @importFrom methods new
-#' @importFrom RcppAnnoy AnnoyEuclidean AnnoyAngular AnnoyManhattan AnnoyHamming
+#' @importFrom RcppAnnoy AnnoyEuclidean
 AnnoyBuildObj <- function(data.use, n.trees = 50){
     l <- ncol(x = data.use)
     annoyObj <- new(Class = RcppAnnoy::AnnoyEuclidean, l)
