@@ -95,7 +95,7 @@ BuildSNN <- function(data.use, k.param = 30, prune.SNN = 1/15, nn.eps = 0, metho
 #' @importFrom RcppAnnoy AnnoyEuclidean
 AnnoyBuildObj <- function(data.use, n.trees = 50){
     l <- ncol(x = data.use)
-    annoyObj <- new(Class = RcppAnnoy::AnnoyEuclidean, l)
+    annoyObj <- methods::new(Class = RcppAnnoy::AnnoyEuclidean, l)
     for(i in seq(nrow(x = data.use))){
         annoyObj$addItem(i - 1, data.use[i, ])
     }
