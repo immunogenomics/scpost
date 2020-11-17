@@ -25,4 +25,9 @@ Imports:
     RANN,
     Seurat,
     RcppAnnoy,
-    magrittr
+    magrittr,
+    dplyr,
+    tidyr,
+    gtools,
+    lme4,
+    rlang
