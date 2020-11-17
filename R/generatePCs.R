@@ -41,7 +41,7 @@
 #' @param res_use The resolution that will be used for clustering (Louvain method) the simulated dataset. 
 #' @param mc.cores The number of cores that will be used for simulating the dataset and clustering.
 #' @param clusterData Boolean determining whether the simulated dataset will be clustered. 
-#' @param returnPCs Boolean determining whether the function will also return the simulated PC locations for reach cell
+#' @param returnPCs Boolean determining whether the function will also return the simulated PC locations for reach cell.
 #'
 #' @return If returnPCs = FALSE, this function returns a list containing the metadata table for the simulated cells. The
 #' metadata table contains a dataframe with the following columns: "cellstate" which refers to the assigned cell state during

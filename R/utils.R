@@ -51,22 +51,6 @@ zero_range <- function(x, tol = .Machine$double.eps ^ 0.5) {
   isTRUE(all.equal(x[1], x[2], tolerance = tol))
 }
 
-#' Calculate a binomial confidence interval
-#'
-#' Given an observed proportion (p) and a number of trials (n), calculate the
-#' half-width of a (z)% binomial confidence interval
-#'
-#' @param p The observed proportion
-#' @param n The total number of samples/trials used to calculate the proportion
-#' @param z The quantile of a standard normal distribution
-#'
-#' @return A singular numeric value representing the half-width of the CI
-#' 
-#' @export
-calcBinomCI <- function(p, n, z = 1.96) {
-   return(z * sqrt((p * (1 - p))/n))
-}
-
 #' Build a shared nearest-neighbor graph
 #'
 #' Returns a shared nearest-neighbor graph by first creating a nearest-neighbor
@@ -190,9 +174,9 @@ getParsFromResFile <- function(fileList){
         a <- unlist(strsplit(x, '_'))[8]
         return(unlist(strsplit(a, 'b'))[1])
     }) 
-    dscale <- sapply(fileList, function(x){
+    sscale <- sapply(fileList, function(x){
         a <- unlist(strsplit(x, '_'))[9]
-        return(unlist(strsplit(a, 'd'))[1])
+        return(unlist(strsplit(a, 's'))[1])
     }) 
     cfscale <- sapply(fileList, function(x){
         a <- unlist(strsplit(x, '_'))[10]
@@ -214,10 +198,77 @@ getParsFromResFile <- function(fileList){
         nbatches = factor(nbatches, levels = gtools::mixedsort(nbatches %>% unique)),
         ncells = factor(ncells, levels = gtools::mixedsort(ncells %>% unique)),
         bscale = factor(bscale, levels = gtools::mixedsort(bscale %>% unique)),
-        dscale = factor(dscale, levels = gtools::mixedsort(dscale %>% unique)),
+        sscale = factor(sscale, levels = gtools::mixedsort(sscale %>% unique)),
         cfscale = factor(cfscale, levels = gtools::mixedsort(cfscale %>% unique)),
         reso = factor(reso, levels = gtools::mixedsort(reso %>% unique)),
         row.names = NULL
     )
     return(tbl)
+}
+
+#' Retrieve the power results from simulations
+#'
+#' Given results, this function will calculate the number of simulations in which at least one cell state
+#' cluster had a significant p-value frorm MASC analysis, meaning the cluster was expanded or depleted between
+#' conditions.
+#'
+#' @param resFiles A list of filenames that refer to the results from simulating a dataset
+#' @param resTables The MASC results tables obtained from MASC analysis on simulated datasets
+#' @param threshold The p-value threshold that determines significance
+#' @param z Determines the size of the confidence interval (CI) where z represents the % CI
+#' @param stratByClus Boolean that determines whether the power results will be calculated as the aggregate of all
+#' clusters or stratified by cluster.
+#'
+#' @return Returns a dataframe containing the power calculations from the simulated datasets
+#'
+#' @importFrom dplyr group_by tally summarise select mutate
+#' @export
+getPowerFromRes <- function(resFiles, resTables, threshold = 0.05, z = 1.96, stratByClus = FALSE){
+    parTable <- getParsFromResFile(fileList = resFiles)
+    pvals <- data.frame(
+        min_masc_unadj = sapply(resTables, function(x){
+            x[, "masc_pval"] %>% min(na.rm = TRUE)
+        }),
+        min_masc_adj = sapply(resTables, function(x){
+            x[, "masc_adj"] %>% min(na.rm = TRUE)
+        }),
+        parTable
+    )
+    if(stratByClus == TRUE){
+        powerVals <- pvals %>% dplyr::group_by(.data$clus, .data$ind_fc, .data$ncases, .data$nctrls, .data$nsamples, .data$ncells, 
+                                               .data$bscale, .data$sscale, .data$cfscale) %>%
+            dplyr::tally(name = "trials") 
+        masc_power <- pvals %>% dplyr::group_by(.data$clus, .data$ind_fc, .data$ncases, .data$nctrls, .data$nsamples, .data$ncells, 
+                                                .data$bscale, .data$sscale, .data$cfscale) %>%
+            dplyr::summarise(masc_power = sum(.data$min_masc_adj < threshold), .groups = "drop") %>% dplyr::select(.data$masc_power)
+        powerTable <- cbind.data.frame(powerVals, masc_power = masc_power) %>% dplyr::mutate(masc_power = masc_power / .data$trials)
+    } else{
+        powerVals <- pvals %>% dplyr::group_by(.data$ind_fc, .data$ncases, .data$nctrls, .data$nsamples, .data$ncells, 
+                                               .data$bscale, .data$sscale, .data$cfscale) %>%
+            dplyr::tally(name = "trials") 
+        masc_power <- pvals %>% dplyr::group_by(.data$ind_fc, .data$ncases, .data$nctrls, .data$nsamples, .data$ncells, 
+                                                .data$bscale, .data$sscale, .data$cfscale) %>%
+            dplyr::summarise(masc_power = sum(.data$min_masc_adj < threshold), .groups = "drop") %>% dplyr::select(.data$masc_power)
+        powerTable <- cbind.data.frame(powerVals, masc_power = masc_power) %>% dplyr::mutate(masc_power = masc_power / .data$trials)
+    }
+    powerTable$masc_power_ci <- apply(powerTable, 1, function(x){
+        calcBinomCI(p = as.numeric(x['masc_power']), n = as.numeric(x['trials']), z = z)
+    })
+    return(powerTable)
+}
+
+#' Calculate a binomial confidence interval
+#'
+#' Given an observed proportion (p) and a number of trials (n), calculate the
+#' half-width of a (z)% binomial confidence interval
+#'
+#' @param p The observed proportion
+#' @param n The total number of samples/trials used to calculate the proportion
+#' @param z The quantile of a standard normal distribution
+#'
+#' @return A singular numeric value representing the half-width of the CI
+#' 
+#' @export
+calcBinomCI <- function(p, n, z = 1.96) {
+   return(z * sqrt((p * (1 - p))/n))
 }
