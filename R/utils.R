@@ -147,3 +147,77 @@ AnnoyGetNN <- function(obj, query, k.param = 30, search.k = -1, get.distance = T
     }
     return(list(nn.idx = idx, nn.dists = dist))
 }
+
+#' Retrieve the parameters from a simulation
+#'
+#' Given a list of files that contain the results from simulating a dataset (via simDataset.base or simDataset.withMASC),
+#' this function will retrieve the parameters used to simulate the dataset
+#'
+#' @param fileList A list of filenames that refer to the results from simulating a dataset
+#'
+#' @return Returns a dataframe containing the parameters used to simulate a dataset
+#'
+#' @importFrom gtools mixedsort
+#' @export
+getParsFromResFile <- function(fileList){
+    rep <- sapply(fileList, function(x){
+        a <- unlist(strsplit(x, '_'))[12]
+    })
+    clus <- sapply(fileList, function(x){
+        a <- unlist(strsplit(x, '_'))[2]
+    })
+    ind_fc <- sapply(fileList, function(x){
+        a <- unlist(strsplit(x, '_'))[3]
+        return(as.numeric(unlist(strsplit(a, 'f'))[1]))
+    }) 
+    ncases <- sapply(fileList, function(x){
+        a <- unlist(strsplit(x, '_'))[4]
+        return(as.numeric(unlist(strsplit(a, 'c'))[1]))
+    })
+    nctrls <- sapply(fileList, function(x){
+        a <- unlist(strsplit(x, '_'))[5]
+        return(as.numeric(unlist(strsplit(a, 'c'))[1]))
+    })
+    nbatches <- sapply(fileList, function(x){
+        a <- unlist(strsplit(x, '_'))[6]
+        return(unlist(strsplit(a, 'b'))[1])
+    }) 
+    ncells <- sapply(fileList, function(x){
+        a <- unlist(strsplit(x, '_'))[7]
+        return(unlist(strsplit(a, 'n'))[1])
+    })
+    bscale <- sapply(fileList, function(x){
+        a <- unlist(strsplit(x, '_'))[8]
+        return(unlist(strsplit(a, 'b'))[1])
+    }) 
+    dscale <- sapply(fileList, function(x){
+        a <- unlist(strsplit(x, '_'))[9]
+        return(unlist(strsplit(a, 'd'))[1])
+    }) 
+    cfscale <- sapply(fileList, function(x){
+        a <- unlist(strsplit(x, '_'))[10]
+        return(unlist(strsplit(a, 'c'))[1])
+    }) 
+    reso <- sapply(fileList, function(x){
+        l <- unlist(strsplit(x, '_'))[11]
+        return(unlist(strsplit(l, 'r'))[1])
+    }) 
+    nsamples <- as.numeric(ncases) + as.numeric(nctrls)
+    
+    tbl <- data.frame(
+        rep = rep,
+        clus = factor(clus, levels = gtools::mixedsort(clus %>% unique)),
+        ind_fc = factor(ind_fc, levels = gtools::mixedsort(ind_fc %>% unique)),
+        ncases = factor(ncases, levels = gtools::mixedsort(ncases %>% unique)),
+        nctrls = factor(nctrls, levels = gtools::mixedsort(nctrls %>% unique)),
+        nsamples = factor(nsamples, levels = gtools::mixedsort(nsamples %>% unique)),
+        nbatches = factor(nbatches, levels = gtools::mixedsort(nbatches %>% unique)),
+        ncells = factor(ncells, levels = gtools::mixedsort(ncells %>% unique)),
+        bscale = factor(bscale, levels = gtools::mixedsort(bscale %>% unique)),
+        dscale = factor(dscale, levels = gtools::mixedsort(dscale %>% unique)),
+        cfscale = factor(cfscale, levels = gtools::mixedsort(cfscale %>% unique)),
+        reso = factor(reso, levels = gtools::mixedsort(reso %>% unique)),
+        row.names = NULL
+    )
+    return(tbl)
+}
