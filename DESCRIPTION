@@ -14,7 +14,7 @@ Description: Investigators in single-cell experiments generally wish to maximize
     setting. scPOST allows users to modify their study design so that they may learn how
     changing their study design will affect their power to detect shifts in cell-state
     frequencies across conditions (e.g. case-control status).
-License: GPL-3 + file LICENSE
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
