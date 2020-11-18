@@ -2,8 +2,8 @@
 
 export("%>%")
 export(distribSamplePerBatch)
-export(distribSampleSplit)
 export(distribSamples)
+export(distribSplitSamples)
 export(estimateFreqVar)
 export(estimatePCVar)
 export(getParsFromResFile)

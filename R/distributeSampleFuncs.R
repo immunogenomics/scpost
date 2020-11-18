@@ -90,7 +90,7 @@ distribSamplePerBatch <- function(ncases, nctrls, nbatches){
 #' as input into our simulation functions (batchStructure parameter).
 #'
 #' @export
-distribSampleSplit <- function(ncases, nctrls, nbatches, numSubsamples){
+distribSplitSamples <- function(ncases, nctrls, nbatches, numSubsamples){
     sample_names <- paste0("sample", 1:sum(ncases, nctrls))
     case_idx <- sample(length(sample_names), ncases)
     case_names <- sample_names[case_idx]
