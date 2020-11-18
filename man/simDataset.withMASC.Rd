@@ -31,7 +31,8 @@ simDataset.withMASC(
   returnPCs = FALSE,
   null_mod = "1 + (1|batch) + (1|sample)",
   full_mod = "condition + (1|batch) + (1|sample)",
-  adj_method = "bonferroni"
+  adj_method = "bonferroni",
+  verbose = TRUE
 )
 }
 \arguments{
@@ -105,6 +106,8 @@ change into cases, while setting cond_induce = "ctrls" will induce a fold change
 \item{full_mod}{The right-hand side of the formula that will be used as the full model in MASC analysis}
 
 \item{adj_method}{The p-value correction method that will be used via the "p.adjust" function}
+
+\item{verbose}{Print out time dataset was simulated at}
 }
 \value{
 This function returns NULL and instead saves the results to the directory designated in "save_path". If returnPCs = FALSE,

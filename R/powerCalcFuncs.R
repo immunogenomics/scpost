@@ -18,6 +18,7 @@
 #' @return Returns a dataframe containing the calculated MASC p-values for each new cluster, as well as
 #' corrected p-values (default Bonferroni corrected)
 #'
+#' @importFrom parallel mclapply
 #' @export
 getPvals.MASC <- function(meta, clusterCol, null_mod, full_mod, mc.cores = 1, adj_method = "bonferroni"){
     cluster_list <- meta[ ,clusterCol] %>% levels

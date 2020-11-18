@@ -15,7 +15,7 @@
 #' as input into our simulation functions (batchStructure parameter).
 #'
 #' @export
-distributeSamples <- function(ncases, nctrls, nbatches){
+distribSamples <- function(ncases, nctrls, nbatches){
     sample_names <- paste0("sample", 1:sum(ncases, nctrls))
     case_idx <- sample(length(sample_names), ncases)
     case_names <- sample_names[case_idx]
@@ -38,7 +38,7 @@ distributeSamples <- function(ncases, nctrls, nbatches){
 #' distribute a sample into its own batch. The number of bathes MUST be equal to the total
 #' number of samples (nbatch = ncases + nctrls)
 #'
-#' @inheritParams distributeSamples
+#' @inheritParams distribSamples
 #'
 #' @return Returns a list containing the following elements: a list containing the batch
 #' structure of the study (info on which samples are cases/controls and which batch they
@@ -80,7 +80,7 @@ distribSamplePerBatch <- function(ncases, nctrls, nbatches){
 #' equally sized subsamples (numSubsamples). These subsamples will then be distributed into 
 #' different batches. Each batch will contain cells from multiple samples (equal to numSubsamples)
 #'
-#' @inheritParams distributeSamples
+#' @inheritParams distribSamples
 #' @param numSubsamples The number of subsamples that each sample will be divided into
 #'
 #' @return Returns a list containing the following elements: a list containing the batch

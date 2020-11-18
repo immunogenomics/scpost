@@ -50,8 +50,8 @@
 #' refers to the new cluster assignments for the simulated cells. If returnPCs = TRUE, this function returns a list containing: 
 #' the metadata table for the simulated cells and a matrix containing the simulated PC locations for each cell.
 #'
-#' @import Seurat
-#' @importFrom utils getFromNamespace
+#' @importFrom Seurat FindNeighbors FindClusters
+#' @importFrom parallel mclapply
 #' @export
 simPCs <- function(ncases, nctrls, nbatches, batchStructure = NULL, ncells, centroids, pc_cov_list, batch_vars,
                    b_scale = 1, sample_vars, s_scale = 1, cfcov, cf_scale = 1, meanFreqs, clus, fc = 1, cond_induce = "cases",
@@ -63,7 +63,7 @@ simPCs <- function(ncases, nctrls, nbatches, batchStructure = NULL, ncells, cent
     
     # Create a default batchstructure if none is provided
     if(is.null(batchStructure)){
-        batchStructure <- distributeSamples(ncases = ncases, nctrls = nctrls, nbatches = nbatches)
+        batchStructure <- distribSamples(ncases = ncases, nctrls = nctrls, nbatches = nbatches)
     }
     # Determine which batches have at least one sample
     numSamplesBatch <- lapply(batchStructure[["batches"]], function(x){
@@ -90,18 +90,18 @@ simPCs <- function(ncases, nctrls, nbatches, batchStructure = NULL, ncells, cent
     }, mc.preschedule = TRUE, mc.cores = min(mc.cores, length(nonEmptyBatches)))
     
     new_pcs <- do.call("rbind", lapply(sim_pcs, "[[", 1)) %>% as.matrix
+    rownames(new_pcs) <- seq(nrow(new_pcs))
     meta <- do.call("rbind", lapply(sim_pcs, "[[", 2)) %>% data.frame
     meta$cellstate <- factor(meta$cellstate)
     
     # Cluster generated cells
     if(clusterData == TRUE){
-        snn_ref <- BuildSNN(data.use = new_pcs, k.param = 30, prune.SNN = 1/15, nn.eps = 0, method = "annoy",
-                        n.trees = 50, search.k = -1, mc.cores = mc.cores)
-        new_clusters <- utils::getFromNamespace("RunModularityClustering", "Seurat")(SNN = snn_ref, modularity = 1, resolution = res_use,
-                                                                                     algorithm = 1,n.start = 20, n.iter = 20, 
-                                                                                     random.seed = 100, print.output = FALSE, 
-                                                                                     temp.file.location = NULL, edge.file.name = NULL) 
-        meta$new_clus <- factor(new_clusters)
+        snn_ref <- Seurat::FindNeighbors(object = new_pcs, k.param = 30, compute.SNN = TRUE, prune.SNN = 1/15, nn.eps = 0,
+                                         nn.method = "annoy", annoy.metric = "euclidean", verbose = FALSE)
+        new_clusters <- Seurat::FindClusters(object = snn_ref[["snn"]], modularity.fxn = 1, resolution = res_use,
+                                             algorithm = 1, n.start = 20, n.iter = 20, random.seed = 100, verbose = FALSE,
+                                             temp.file.location = NULL, edge.file.name = NULL) 
+        meta$new_clus <- factor(new_clusters[[1]])
     }
     
     if(returnPCs == TRUE){
@@ -109,7 +109,7 @@ simPCs <- function(ncases, nctrls, nbatches, batchStructure = NULL, ncells, cent
     } else{
         obj <- list(meta = meta)
     }
-    
+
     return(obj)
 }
 

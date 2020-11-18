@@ -28,7 +28,8 @@ simDataset.base(
   res_use = 1.2,
   mc.cores = 1,
   clusterData = TRUE,
-  returnPCs = FALSE
+  returnPCs = FALSE,
+  verbose = TRUE
 )
 }
 \arguments{
@@ -96,6 +97,8 @@ change into cases, while setting cond_induce = "ctrls" will induce a fold change
 \item{clusterData}{Boolean determining whether the simulated dataset will be clustered.}
 
 \item{returnPCs}{Boolean determining whether the function will also return the simulated PC locations for reach cell.}
+
+\item{verbose}{Print out time dataset was simulated at}
 }
 \value{
 This function returns NULL and instead saves the results to the directory designated in "save_path". If returnPCs = FALSE,

@@ -87,6 +87,7 @@ estimateFreqVar <- function(meta, clusCol, sampleCol, logCov = TRUE){
 #' @importFrom lme4 lmer lmerControl .makeCC
 #' @importFrom dplyr filter
 #' @importFrom rlang .data
+#' @importFrom parallel mclapply
 #' @export
 estimatePCVar <- function(pca, npcs, meta, clusCol, sampleCol, batchCol, parallel = FALSE, mc.cores = 1, save = NULL){
     colnames(pca) <- paste0("PC", 1:ncol(pca))

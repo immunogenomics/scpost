@@ -48,6 +48,7 @@
 #' @param null_mod The right-hand side of the formula that will be used as the null model in MASC analysis
 #' @param full_mod The right-hand side of the formula that will be used as the full model in MASC analysis
 #' @param adj_method The p-value correction method that will be used via the "p.adjust" function
+#' @param verbose Print out time dataset was simulated at
 #'
 #' @return This function returns NULL and instead saves the results to the directory designated in "save_path". If returnPCs = FALSE, 
 #' the saved results will be a list containing the metadata table for the simulated cells. The metadata table contains a dataframe with 
@@ -62,7 +63,7 @@ simDataset.withMASC <- function(save_path, rep = 1, seed = 1, ncases, nctrls, nb
                                 pc_cov_list, batch_vars, b_scale = 1, sample_vars, s_scale = 1, cfcov, cf_scale = 1, meanFreqs, clus, 
                                 fc = 1, cond_induce = "cases", res_use = 1.2, mc.cores = 1, clusterData = TRUE, returnPCs = FALSE,
                                 null_mod = "1 + (1|batch) + (1|sample)", full_mod = "condition + (1|batch) + (1|sample)",
-                                adj_method = "bonferroni"){
+                                adj_method = "bonferroni", verbose = TRUE){
     RNGkind("L'Ecuyer-CMRG")
     set.seed(seed)
     
@@ -104,7 +105,12 @@ simDataset.withMASC <- function(save_path, rep = 1, seed = 1, ncases, nctrls, nb
                       mean(ncells), 'ncells_', b_scale, 'bscale_', s_scale, 'sscale_', cf_scale, 'cfscale_', res_use, 'reso_',
                       'rep', rep, '_seed', seed, '.rds', sep = "")
     saveRDS(object = data, file = file.path(save_path, filename))
+    
+    if(verbose){
+        return(message(paste("Simulated dataset at", Sys.time())))
+    }
 }    
+ 
 
 #' Simulate a dataset and save the results
 #'
@@ -124,7 +130,7 @@ simDataset.withMASC <- function(save_path, rep = 1, seed = 1, ncases, nctrls, nb
 #' @export
 simDataset.base <- function(save_path, rep = 1, seed = 1, ncases, nctrls, nbatches, batchStructure = NULL, ncells, centroids, 
                             pc_cov_list, batch_vars, b_scale = 1, sample_vars, s_scale = 1, cfcov, cf_scale = 1, meanFreqs, clus, fc = 1, 
-                            cond_induce = "cases", res_use = 1.2, mc.cores = 1, clusterData = TRUE, returnPCs = FALSE){
+                            cond_induce = "cases", res_use = 1.2, mc.cores = 1, clusterData = TRUE, returnPCs = FALSE, verbose = TRUE){
     RNGkind("L'Ecuyer-CMRG")
     set.seed(seed)
     
@@ -156,4 +162,8 @@ simDataset.base <- function(save_path, rep = 1, seed = 1, ncases, nctrls, nbatch
                       mean(ncells), 'ncells_', b_scale, 'bscale_', s_scale, 'sscale_', cf_scale, 'cfscale_', res_use, 'reso_', 
                       'rep', rep, '_seed', seed, '.rds', sep = "")
     saveRDS(object = data, file = file.path(save_path, filename))
+    
+    if(verbose){
+        message(paste("Simulated dataset at", Sys.time()))
+    }
 }
