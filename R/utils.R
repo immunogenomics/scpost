@@ -140,7 +140,7 @@ getParsFromResFile <- function(fileList){
 #'
 #' @return Returns a dataframe containing the power calculations from the simulated datasets
 #'
-#' @importFrom dplyr group_by tally summarise select mutate
+#' @importFrom dplyr group_by tally summarise pull mutate
 #' @export
 getPowerFromRes <- function(resFiles, resTables, threshold = 0.05, z = 1.96, stratByClus = FALSE){
     parTable <- getParsFromResFile(fileList = resFiles)
@@ -159,16 +159,16 @@ getPowerFromRes <- function(resFiles, resTables, threshold = 0.05, z = 1.96, str
             dplyr::tally(name = "trials") 
         masc_power <- pvals %>% dplyr::group_by(.data$clus, .data$ind_fc, .data$ncases, .data$nctrls, .data$nsamples, .data$ncells, 
                                                 .data$bscale, .data$sscale, .data$cfscale) %>%
-            dplyr::summarise(masc_power = sum(.data$min_masc_adj < threshold), .groups = "drop") %>% dplyr::select(.data$masc_power)
-        powerTable <- cbind.data.frame(powerVals, masc_power = masc_power) %>% dplyr::mutate(masc_power = masc_power / .data$trials)
+            dplyr::summarise(masc_power = sum(.data$min_masc_adj < threshold), .groups = "drop") %>% dplyr::pull(.data$masc_power)
+        powerTable <- cbind.data.frame(powerVals, masc_power = masc_power) %>% dplyr::mutate(masc_power = .data$masc_power / .data$trials)
     } else{
         powerVals <- pvals %>% dplyr::group_by(.data$ind_fc, .data$ncases, .data$nctrls, .data$nsamples, .data$ncells, 
                                                .data$bscale, .data$sscale, .data$cfscale) %>%
             dplyr::tally(name = "trials") 
         masc_power <- pvals %>% dplyr::group_by(.data$ind_fc, .data$ncases, .data$nctrls, .data$nsamples, .data$ncells, 
                                                 .data$bscale, .data$sscale, .data$cfscale) %>%
-            dplyr::summarise(masc_power = sum(.data$min_masc_adj < threshold), .groups = "drop") %>% dplyr::select(.data$masc_power)
-        powerTable <- cbind.data.frame(powerVals, masc_power = masc_power) %>% dplyr::mutate(masc_power = masc_power / .data$trials)
+            dplyr::summarise(masc_power = sum(.data$min_masc_adj < threshold), .groups = "drop") %>% dplyr::pull(.data$masc_power)
+        powerTable <- cbind.data.frame(powerVals, masc_power = masc_power) %>% dplyr::mutate(masc_power = .data$masc_power / .data$trials)
     }
     powerTable$masc_power_ci <- apply(powerTable, 1, function(x){
         calcBinomCI(p = as.numeric(x['masc_power']), n = as.numeric(x['trials']), z = z)
