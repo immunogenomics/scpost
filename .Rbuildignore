@@ -2,3 +2,4 @@
 ^\.ipynb_checkpoints$
 ^R/\.ipynb_checkpoints$
 ^man/\.ipynb_checkpoints$
+^vignettes/*$
