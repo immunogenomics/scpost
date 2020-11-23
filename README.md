@@ -37,17 +37,9 @@ that outlines a typical workflow.
 
 ## Basic simulation workflow
 
-scPOST uses a workflow that comprises 3 general steps:
+scPOST uses a workflow that comprises 3 general steps
 
-Step 1: Estimates variance parameters from real data
-
-Step 2: Simulation of a new dataset based on estimated parameters in
-Step 1
-
-Step 3: Association testing with MASC to detect cell state frequency
-shifts between conditions
-
-![Workflow](docs/PowerFig1.pdf)
+![Workflow](https://github.com/immunogenomics/scpost/blob/main/docs/PowerFig1.pdf)
 
 The following code performs these steps with a pre-loaded dataset
 provided in the scpost package
@@ -63,7 +55,7 @@ raFib_pcEstimates <- estimatePCVar(pca = ra_FibObj$embeddings, npcs = 20, meta =
                                    sampleCol = 'sample', batchCol = 'batch')
 ```
 
-### Step 2 and 3 together:
+### Step 2 and 3 together: Dataset simulation and association testing with MASC
 
 In order to run many simulations, we recommend creating a parameter
 table that lists the parameters you plan to use for each simulation. We
@@ -74,8 +66,8 @@ provide an example here.
 set.seed(23)
 
 # Set the number of samples, number of cells per sample, and create batch structure
-ncases <- 17
-nctrls <- 3
+ncases <- 10
+nctrls <- 10
 nbatches <- 4
 batchStructure <- distribSamples(ncases = ncases, nctrls = nctrls, nbatches = nbatches)
 ncells <- rep(250, times = ncases + nctrls)
@@ -100,7 +92,7 @@ fc <- 5
 resolution <- 0.6
 mc.cores <- 1
 
-save_path <- file.path(getwd(), "scpostSims/unbalanced/")
+save_path <- file.path(getwd(), "scpostSims/balanced/")
 reps <- 1:5
 
 # Create parameter table for running multiple simulations
