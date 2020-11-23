@@ -1,39 +1,41 @@
+---
+output: github_document
+---
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
 
 # scPOST
 
 <!-- badges: start -->
-
 <!-- badges: end -->
 
-Simulation of single-cell datasets for power analyses that estimate
-power to detect cell state frequency shifts between conditions (e.g. an
-expansion of a cell state in disease vs. control).
+Simulation of single-cell datasets for power analyses that estimate power to detect cell state frequency shifts between conditions (e.g. an expansion of a cell state in disease vs. control).
 
 ## Installation
 
-Install the current version of scPOST from [GitHub](https://github.com/)
-with:
+Install the current version of scPOST from [GitHub](https://github.com/) with:
 
 ``` r
 # install.packages("devtools")
 devtools::install_github("immunogenomics/scpost")
 ```
 
-### Installation notes:
-
-  - You may need to install the latest version of devtools (because of
-    the recent GitHub change from “master” to “main” terminology, which
-    can cause previous versions of `install_github` to fail).
+### Installation notes: 
+* You may need to install the latest version of devtools (because of the recent GitHub change from "master" to "main" terminology, which can cause previous versions of `install_github` to fail).
 
 # Usage/Demos
-
 ## Quick start
 
-Check out this [short
-tutorial](https://github.com/immunogenomics/scpost/blob/main/vignettes/raFib_tutorial.ipynb)
-that outlines a typical workflow.
+Check out this [short tutorial](https://github.com/immunogenomics/scpost/blob/main/vignettes/raFib_tutorial.ipynb) that outlines a typical workflow.
 
 ## Basic simulation workflow
 
@@ -41,33 +43,27 @@ scPOST uses a workflow that comprises 3 general steps:
 
 Step 1: Estimates variance parameters from real data
 
-Step 2: Simulation of a new dataset based on estimated parameters in
-Step 1
+Step 2: Simulation of a new dataset based on estimated parameters in Step 1
 
-Step 3: Association testing with MASC to detect cell state frequency
-shifts between conditions
+Step 3: Association testing with MASC to detect cell state frequency shifts between conditions
 
-The following code performs these steps with a pre-loaded dataset
-provided in the scpost package
+The following code performs these steps with a pre-loaded dataset provided in the scpost package
 
 ### Step 1: Parameter estimation
-
-``` r
+```{r eval=FALSE}
 raFib_freqEstimates <- estimateFreqVar(meta = ra_FibObj$meta, clusCol = 'clusOnlyFib', sampleCol = 'sample', logCov = TRUE)
 ```
 
-``` r
+```{r eval=FALSE}
 raFib_pcEstimates <- estimatePCVar(pca = ra_FibObj$embeddings, npcs = 20, meta = ra_FibObj$meta, clusCol = 'clusOnlyFib',
                                    sampleCol = 'sample', batchCol = 'batch')
 ```
 
 ### Step 2 and 3 together:
 
-In order to run many simulations, we recommend creating a parameter
-table that lists the parameters you plan to use for each simulation. We
-provide an example here.
+In order to run many simulations, we recommend creating a parameter table that lists the parameters you plan to use for each simulation. We provide an example here.
 
-``` r
+```{r eval=FALSE}
 # Set up parameter table for multiple simulations
 set.seed(23)
 
@@ -110,11 +106,9 @@ params$cond_induce = "cases"
 params$seed <- sample(.Machine$integer.max, size = nrow(params))
 ```
 
-Once you have the parameter table, you can perform many simulations
-(note, a save directory is required so that you can save the results of
-your simulations):
+Once you have the parameter table, you can perform many simulations (note, a save directory is required so that you can save the results of your simulations):
 
-``` r
+```{r eval=FALSE}
 suppressWarnings({
     lapply(seq(nrow(params)), function(x){
             simDataset.withMASC(

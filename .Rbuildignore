@@ -3,3 +3,5 @@
 ^R/\.ipynb_checkpoints$
 ^man/\.ipynb_checkpoints$
 ^vignettes/*$
+^README\.Rmd$
+^docs/*$
