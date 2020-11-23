@@ -47,7 +47,7 @@ Step 2: Simulation of a new dataset based on estimated parameters in Step 1
 
 Step 3: Association testing with MASC to detect cell state frequency shifts between conditions
 
-[Workflow]https://github.com/immunogenomics/scpost/blob/main/docs/PowerFig1.pdf
+![Workflow](docs/PowerFig1.pdf)
 
 The following code performs these steps with a pre-loaded dataset provided in the scpost package
 
