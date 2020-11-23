@@ -9,7 +9,7 @@
 
 Simulation of single-cell datasets for power analyses that estimate
 power to detect cell state frequency shifts between conditions (e.g. an
-expansion of a cell state in disease vs. control).
+expansion of a cell state in disease vs. healthy).
 
 ## Installation
 
@@ -46,6 +46,8 @@ Step 1
 
 Step 3: Association testing with MASC to detect cell state frequency
 shifts between conditions
+
+\[Workflow\]<https://github.com/immunogenomics/scpost/blob/main/docs/PowerFig1.pdf>
 
 The following code performs these steps with a pre-loaded dataset
 provided in the scpost package
