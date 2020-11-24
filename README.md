@@ -32,7 +32,7 @@ devtools::install_github("immunogenomics/scpost")
 ## Getting started
 
 Check out this [short
-tutorial](https://github.com/immunogenomics/scpost/blob/main/vignettes/GettingStarted_Tutorial.ipynb)
+tutorial](https://github.com/immunogenomics/scpost/blob/main/vignettes/GettingStarted_Tutorial.pdf)
 that runs through a typical scPOST workflow.
 
 ## Basic simulation workflow
