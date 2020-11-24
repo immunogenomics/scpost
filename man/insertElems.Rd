@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils.R
 \name{insertElems}
 \alias{insertElems}
-\title{Implementation from Tutur Qhuhuit that inserts an element/s into a vector}
+\title{Insert an element or vector of elements to designated positions in a vector}
 \usage{
 insertElems(vect, pos, elems)
 }

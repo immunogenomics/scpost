@@ -11,7 +11,7 @@
 NULL
 
 
-#  Insert an element or vector of elements to designated positions in a vector
+#' Insert an element or vector of elements to designated positions in a vector
 #'
 #' Implementation from Tutur Qhuhuit that inserts an element/s into a vector
 #'
@@ -51,6 +51,8 @@ zero_range <- function(x, tol = .Machine$double.eps ^ 0.5) {
   isTRUE(all.equal(x[1], x[2], tolerance = tol))
 }
 
+#' Create a table of parameters that will be used for simulations
+#'
 #' Create a table of parameters that will be used for simulations
 #'
 #' @param nreps Numeric value indicating the number of replicates of a simulation that will be run.
