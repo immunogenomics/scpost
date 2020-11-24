@@ -51,6 +51,53 @@ zero_range <- function(x, tol = .Machine$double.eps ^ 0.5) {
   isTRUE(all.equal(x[1], x[2], tolerance = tol))
 }
 
+#' Create a table of parameters that will be used for simulations
+#'
+#' @param nreps Numeric value indicating the number of replicates of a simulation that will be run.
+#' @param clus The name of the cluster in which a fold change will be induced.
+#' @param fc The magnitude of the fold change that will be induced in the chosen cluster. If no fold change is desired, set
+#' fc = 1.
+#' @param ncases The number of cases.
+#' @param nctrls The number of controls.
+#' @param nbatches The number of batches that samples will be distributed into.
+#' @param b_scale The magnitude of batch-associated gene expression variation the simulated dataset will exhibit. Setting b_scale
+#' = 1 will result in realistic levels of batch-associated variation (as derived from parameter estimation of the input dataset).
+#' Increasing b_scale results in higher variation, while decreasing b_scale results in lower variation.
+#' @param s_scale The magnitude of sample-associated gene expression variation the simulated dataset will exhibit. Setting s_scale
+#' = 1 will result in realistic levels of sample-associated variation (as derived from parameter estimation of the input dataset).
+#' Increasing s_scale results in higher variation, while decreasing s_scale results in lower variation.
+#' @param cf_scale The magnitude of cell state frequency variation that cell states will exhibit across samples in the simulated
+#' dataset. Setting cf_scale = 1 will result in realistic levels of cell state frequency variation (as derived from parameter 
+#' estimation of the input dataset). Increasing cf_scale results in higher variation, while decreasing cf_scale results in lower variation.
+#' @param res_use The resolution that will be used for clustering (Louvain method) the simulated dataset. 
+#' @param cond_induce The condition you wish to induce a fold change in. Setting cond_induce = "cases" will induce a fold 
+#' change into cases, while setting cond_induce = "ctrls" will induce a fold change into controls.
+#' @param save_path The name of the directory the results will be saved to.
+#'
+#' @return A data.frame containing user-controlled parameters that will be used for simulations
+#'
+#' @export
+createParamTable <- function(nreps, clus, fc, ncases = 10, nctrls = 10, nbatches = 4, b_scale = 1, s_scale = 1, cf_scale = 1, 
+                             res_use = 1.2, cond_induce = "cases", save_path){
+    paramTable <- expand.grid(
+        rep = seq(nreps),
+        ncases = ncases,
+        nctrls = nctrls,
+        nbatches = nbatches,
+        b_scale = b_scale,
+        s_scale = s_scale,
+        cf_scale = cf_scale,
+        clus = clus,
+        fc = fc,
+        res_use = res_use,
+        save_path = save_path
+    )
+    paramTable$cond_induce = cond_induce
+    paramTable$seed <- sample(.Machine$integer.max, size = nrow(paramTable))
+    
+    return(paramTable)
+}
+
 #' Retrieve the parameters from a simulation
 #'
 #' Given a list of files that contain the results from simulating a dataset (via simDataset.base or simDataset.withMASC),
