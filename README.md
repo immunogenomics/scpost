@@ -42,17 +42,28 @@ scPOST uses a workflow that comprises 3 general steps
 ![Workflow](https://github.com/immunogenomics/scpost/blob/main/docs/images/PowerFig1.png)
 
 The following code performs these steps with a pre-loaded dataset
-provided in the scpost package
+(ra\_FibObj) provided in the scpost package
 
 ### Step 1: Parameter estimation
 
 ``` r
-raFib_freqEstimates <- estimateFreqVar(meta = ra_FibObj$meta, clusCol = 'clusOnlyFib', sampleCol = 'sample', logCov = TRUE)
+raFib_freqEstimates <- estimateFreqVar(
+    meta = ra_FibObj$meta, 
+    clusCol = 'clusOnlyFib', 
+    sampleCol = 'sample', 
+    logCov = TRUE
+)
 ```
 
 ``` r
-raFib_pcEstimates <- estimatePCVar(pca = ra_FibObj$embeddings, npcs = 20, meta = ra_FibObj$meta, clusCol = 'clusOnlyFib',
-                                   sampleCol = 'sample', batchCol = 'batch')
+raFib_pcEstimates <- estimatePCVar(
+    pca = ra_FibObj$embeddings, 
+    npcs = 20, 
+    meta = ra_FibObj$meta, 
+    clusCol = 'clusOnlyFib',
+    sampleCol = 'sample', 
+    batchCol = 'batch'
+)
 ```
 
 ### Step 2 and 3 together: Dataset simulation and association testing with MASC
