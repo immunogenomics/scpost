@@ -29,17 +29,17 @@ devtools::install_github("immunogenomics/scpost")
 
 # Usage/Demos
 
-## Quick start
+## Getting started
 
 Check out this [short
-tutorial](https://github.com/immunogenomics/scpost/blob/main/vignettes/raFib_tutorial.ipynb)
-that outlines a typical workflow.
+tutorial](https://github.com/immunogenomics/scpost/blob/main/vignettes/GettingStarted_Tutorial.ipynb)
+that runs through a typical scPOST workflow.
 
 ## Basic simulation workflow
 
 scPOST uses a workflow that comprises 3 general steps
 
-![Workflow](https://github.com/immunogenomics/scpost/blob/main/docs/PowerFig1.png)
+![Workflow](https://github.com/immunogenomics/scpost/blob/main/docs/images/PowerFig1.png)
 
 The following code performs these steps with a pre-loaded dataset
 provided in the scpost package
@@ -73,35 +73,20 @@ batchStructure <- distribSamples(ncases = ncases, nctrls = nctrls, nbatches = nb
 ncells <- rep(250, times = ncases + nctrls)
 names(ncells) <- batchStructure$sample_names
 
-# Retrieve estimates
-meanFreqs <- raFib_freqEstimates$meanFreq
-cfcov <- raFib_freqEstimates$cfcov
-centroids <- raFib_pcEstimates$centroids
-pc_cov_list <- raFib_pcEstimates$pc_cov_list
-batch_vars <- raFib_pcEstimates$batch_vars
-sample_vars <- raFib_pcEstimates$sample_vars
-
-# Set scaling parameters (realistic)
-b_scale <- 1
-s_scale <- 1
-cf_scale <- 1
-
-# Set cluster names to induce fc, magnitude of fc, and resolution to re-cluster
-clus <- "clus0"
-fc <- 5
-resolution <- 0.6
-mc.cores <- 1
-
-save_path <- file.path(getwd(), "scpostSims/balanced/")
-reps <- 1:5
-
-# Create parameter table for running multiple simulations
-params <- expand.grid(
-    rep = reps, ncases = ncases, nctrls = nctrls, nbatches = nbatches, b_scale = b_scale, s_scale = s_scale,
-    cf_scale = cf_scale, clus = clus, fc = fc, res_use = resolution, save_path = save_path
+params <- createParamTable(
+    nreps = 5,
+    clus = "clus0",
+    fc = 5,
+    ncases = ncases,
+    nctrls = nctrls,
+    nbatches = nbatches,
+    b_scale = 1,
+    s_scale = 1,
+    cf_scale = 1,
+    res_use = 0.6,
+    cond_induce = "cases",
+    save_path = file.path(getwd(), "scpostSims/gettingStarted/")
 )
-params$cond_induce = "cases"
-params$seed <- sample(.Machine$integer.max, size = nrow(params))
 ```
 
 Once you have the parameter table, you can perform many simulations
