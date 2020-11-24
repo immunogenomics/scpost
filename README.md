@@ -35,7 +35,7 @@ devtools::install_github("immunogenomics/scpost")
     tutorial](https://github.com/immunogenomics/scpost/blob/main/vignettes/GettingStarted_Tutorial.ipynb)
     that runs through a typical scPOST workflow.
   - If you just want the simulated dataset for analyses other than
-    differential abundance testing, you check out this
+    differential abundance testing, follow this
     [tutorial](https://github.com/immunogenomics/scpost/blob/main/vignettes/RetrievingSimulations_Tutorial.ipynb)
     that shows how to retrieve your simulated datasets.
 
