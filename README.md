@@ -9,7 +9,9 @@
 
 Simulation of single-cell datasets for power analyses that estimate
 power to detect cell state frequency shifts between conditions (e.g. an
-expansion of a cell state in disease vs. healthy).
+expansion of a cell state in disease vs. healthy). See the
+[bioRxiv](https://www.biorxiv.org/content/10.1101/2020.11.23.390682v1)
+paper for more details.
 
 ## Installation
 
