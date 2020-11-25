@@ -47,8 +47,10 @@ scPOST uses a workflow that comprises 3 general steps
 
 ![Workflow](https://github.com/immunogenomics/scpost/blob/main/docs/images/PowerFig1.png)
 
+## Quick-start code
+
 The following code performs these steps with a pre-loaded dataset
-(ra\_FibObj) provided in the scpost package
+(ra\_FibObj) provided in the scpost package:
 
 ### Step 1: Parameter estimation
 
