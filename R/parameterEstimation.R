@@ -38,7 +38,7 @@ estimateFreqVar <- function(meta, clusCol, sampleCol, logCov = TRUE){
     }))
     tot_freqTable <- tot_freqTable + 1
     rownames(tot_freqTable) <- sample_list
-    colnames(tot_freqTable) <- paste0('clus', gtools::mixedsort(meta[, clusCol] %>% unique))
+    colnames(tot_freqTable) <- paste0('clus', gtools::mixedsort(meta[, clusCol] %>% levels))
     tot_propTable <- sweep(tot_freqTable, 1, rowSums(tot_freqTable), '/')
     
     # Calculate the variance-covariance matrix for cell states across samples
