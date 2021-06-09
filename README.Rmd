@@ -56,6 +56,8 @@ raFib_freqEstimates <- estimateFreqVar(
     sampleCol = 'sample', 
     logCov = TRUE
 )
+meanFreqs <- raFib_freqEstimates$meanFreq
+cfcov <- raFib_freqEstimates$cfcov
 ```
 
 ```{r eval=FALSE}
@@ -67,6 +69,10 @@ raFib_pcEstimates <- estimatePCVar(
     sampleCol = 'sample', 
     batchCol = 'batch'
 )
+centroids <- raFib_pcEstimates$centroids
+pc_cov_list <- raFib_pcEstimates$pc_cov_list
+batch_vars <- raFib_pcEstimates$batch_vars
+sample_vars <- raFib_pcEstimates$sample_vars
 ```
 
 ### Step 2 and 3 together: Dataset simulation and association testing with MASC
@@ -97,7 +103,7 @@ params <- createParamTable(
     cf_scale = 1,
     res_use = 0.6,
     cond_induce = "cases",
-    save_path = file.path(getwd(), "scpostSims/gettingStarted/")
+    save_path = file.path(getwd(), "scpostSims/gettingStarted/") #example file path - create your own
 )
 ```
 

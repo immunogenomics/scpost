@@ -4,7 +4,6 @@
 # scPOST
 
 <!-- badges: start -->
-
 <!-- badges: end -->
 
 Simulation of single-cell datasets for power analyses that estimate
@@ -25,7 +24,7 @@ devtools::install_github("immunogenomics/scpost")
 
 ### Installation notes:
 
-  - You may need to install the latest version of devtools (because of
+-   You may need to install the latest version of devtools (because of
     the recent GitHub change from “master” to “main” terminology, which
     can cause previous versions of `install_github` to fail).
 
@@ -33,10 +32,10 @@ devtools::install_github("immunogenomics/scpost")
 
 ## Tutorials
 
-  - Get started with this [short
+-   Get started with this [short
     tutorial](https://github.com/immunogenomics/scpost/blob/main/vignettes/GettingStarted_Tutorial.ipynb)
     that runs through a typical scPOST workflow.
-  - If you just want the simulated dataset for analyses other than
+-   If you just want the simulated dataset for analyses other than
     differential abundance testing, follow this
     [tutorial](https://github.com/immunogenomics/scpost/blob/main/vignettes/RetrievingSimulations_Tutorial.ipynb)
     that shows how to retrieve your simulated datasets.
@@ -61,6 +60,8 @@ raFib_freqEstimates <- estimateFreqVar(
     sampleCol = 'sample', 
     logCov = TRUE
 )
+meanFreqs <- raFib_freqEstimates$meanFreq
+cfcov <- raFib_freqEstimates$cfcov
 ```
 
 ``` r
@@ -72,6 +73,10 @@ raFib_pcEstimates <- estimatePCVar(
     sampleCol = 'sample', 
     batchCol = 'batch'
 )
+centroids <- raFib_pcEstimates$centroids
+pc_cov_list <- raFib_pcEstimates$pc_cov_list
+batch_vars <- raFib_pcEstimates$batch_vars
+sample_vars <- raFib_pcEstimates$sample_vars
 ```
 
 ### Step 2 and 3 together: Dataset simulation and association testing with MASC
@@ -104,7 +109,7 @@ params <- createParamTable(
     cf_scale = 1,
     res_use = 0.6,
     cond_induce = "cases",
-    save_path = file.path(getwd(), "scpostSims/gettingStarted/")
+    save_path = file.path(getwd(), "scpostSims/gettingStarted/") #example file path - create your own
 )
 ```
 
