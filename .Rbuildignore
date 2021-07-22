@@ -5,3 +5,7 @@
 ^vignettes/*$
 ^README\.Rmd$
 ^docs/*$
+^doc$
+^Meta$
+^.*\.Rproj$
+^\.Rproj|.user$
