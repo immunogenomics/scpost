@@ -9,3 +9,7 @@
 ^Meta$
 ^.*\.Rproj$
 ^\.Rproj|.user$
+^vignettes/GettingStarted\.Rmd$
+^vignettes/Visualizing_SimulatedData\.Rmd$
+^vignettes/OptimizingStudyDesign_SamplesVsCells\.Rmd$
+^vignettes/ExploringMultiplexingDesigns\.Rmd$
