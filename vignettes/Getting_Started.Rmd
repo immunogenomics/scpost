@@ -1,0 +1,318 @@
+---
+title: "Getting started with scPOST"
+author: Nghia Millard
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with scPOST}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Installation
+
+You can install scpost from github with devtools
+```{r eval = FALSE}
+library(devtools)
+devtools::install_github(repo = "immunogenomics/scpost")
+```
+
+```{r setup}
+library(scpost)
+```
+
+# scPOST objective
+
+- scPOST is a simulation framework that estimates a study design's power to detect differentially abundant cell states (e.g. an expansion of a cell state in disease samples compared to healthy). 
+- scPOST allows users to control the simulated data's characteristics, including: effect size, the number of samples, the number of cells per sample, the batch multiplexing structure, and the magnitude of simulated noise. 
+- Thus, users can use scPOST to explore how different study design choices might affect power.
+
+## Minimum input
+
+To simulate data, scPOST uses an input prototype dataset (such as public or pilot data). scPOST estimates two types of variation often found in multi-sample single-cell data:
+
+1. Variation in a cell state's frequency across samples (Cell state frequency variation)
+1. Variation in a cell state's gene expression. We estimate and simulate gene expression with principal components (PCs), because PCs are a summary of gene expression that also takes into account gene covariation. This also reduces computational burden.
+
+scPOST requires the following inputs for each cell:
+
+1. Cell state annotations (in single-cell these are often obtained from clustering algorithms, such as the Louvain method)
+1. Sample annotations (the sample each cell comes from)
+1. Batch annotations (if no batch information for the data is available, it is sufficient to treat every sample as it's own batch)
+1. Principal component values (these are obtained from PCA)
+
+Let's take a look at a prototype dataset that we will apply scPOST to.
+
+```{r}
+ra_FibObj$meta %>% str
+ra_FibObj$embeddings %>% head(2)
+```
+
+In the metadata, we have:
+
+- Cell state annotations (clusOnlyFib)
+- Sample annotations (sample)
+- Batch annotations (batch)
+
+In the embeddings, we have:
+
+- Principal component values for 20 PCs
+
+# Getting started with scPOST
+
+This tutorial will run through the scPOST framework, which comprises 3 steps.
+
+Step 1: Parameter estimation
+
+Step 2: Dataset simulation
+
+Step 3: Association testing for cell state frequency shifts (e.g. expansion or deletion)
+
+Here, we will simulate fibroblast data from the rheumatoid arthritis (RA) dataset described in Zhang F, Wei K, Slowikowski K, Fonseka C, Rao DA, *et al.*, *Nature Immunol* (2020). The input prototype dataset we will use is contained in "ra_FibObj".
+
+Through cytometry, the authors identified an HLA-DRA+ fibroblast cell state that was expanded in inflammatory RA samples compared to osteoarthritis samples. However, they we unable to detect this expansion in their single-cell RNA sequencing (scRNA-seq) data due to sample size (n = 21, 17 case, 4 control).
+
+**Let's use scPOST to find study design changes that might increase power.**
+
+# Step 1: Parameter estimation
+
+## Cell state frequency Variation
+
+With the "estimateFreqVar" function, we estimate each cell state's mean frequency and covariance across samples
+
+```{r}
+raFib_freqEstimates <- estimateFreqVar(meta = ra_FibObj$meta, clusCol = 'clusOnlyFib', sampleCol = 'sample', logCov = TRUE)
+raFib_freqEstimates %>% str
+```
+
+## Gene expression variation
+
+With the "estimatePCVar" function, we estimate each cell state's gene expression variation. We use linear mixed effects models to estimate this variance, which we can deconvolute into different sources of variance. From these models, we estimate the following for each cell state:
+
+1. Centroid in PC space
+1. Residual variance in PC space
+1. Batch-associated variance in PC space
+1. Sample-associated variance in PC space
+
+Computation time will depend on the size of the real data. For larger datasets, we recommend saving the aforementioned estimates so that they can be used for future simulations
+
+```{r}
+raFib_pcEstimates <- estimatePCVar(pca = ra_FibObj$embeddings, npcs = 20, meta = ra_FibObj$meta, clusCol = 'clusOnlyFib',
+                                   sampleCol = 'sample', batchCol = 'batch')
+raFib_pcEstimates %>% str(1)
+# If desired, save these estimates for future use
+```
+
+# Step 2 and 3: Simulate dataset and perform association testing
+
+Next, we'll generate *in silico* fibroblast datasets and use MASC (Mixed effects association of single-cells) to test whether we test an expansion or depletion of a cluster in our simulated data.
+
+For users that wish to estimate power to detect differential abundance, we recommend users use the "simDataset.withMASC" function to perform both **Step 2 and Step 3** at the same time so that they may make use of streamlined file naming and handling. Users that only wish to simulate a dataset can use the "simDataset.base" function.
+
+**Important: Before running simulations, create a save folder where you will save the results of the simulations**
+
+- Before running our simulations, we created a "scpostSims/gettingStarted" folder
+
+## Simulate datasets with 20 samples: unbalanced study design
+
+The cohort of the original RA scRNA-seq data consisted of 17 cases and 4 controls. Here, we'll simulate 5 datasets that each have 20 samples (17 cases and 3 controls). 
+
+Let's set the number of samples, the number of cells per sample, and the batch structure.
+
+```{r}
+set.seed(23)
+
+# Set the number of samples, number of cells per sample, and create batch structure
+ncases <- 17
+nctrls <- 3
+nbatches <- 4
+batchStructure <- distribSamples(ncases = ncases, nctrls = nctrls, nbatches = nbatches)
+ncells <- rep(250, times = ncases + nctrls)
+names(ncells) <- batchStructure$sample_names
+
+batchStructure %>% str
+```
+
+Next, we'll set up a parameter table with the "createParamTable" function that we'll use to run multiple simulations: 
+- We'll simulate realistic levels of variation by setting "b_scale", "s_scale", and "cf_scale" equal to 1. 
+- We'll induce a fold-change of 5 into "clus0", the HLA-DRA+ fibroblast cell state
+- We'll set up a folder where we will save our results
+
+```{r}
+params <- createParamTable(
+    nreps = 5,
+    clus = "clus0",
+    fc = 5,
+    ncases = ncases,
+    nctrls = nctrls,
+    nbatches = nbatches,
+    b_scale = 1,
+    s_scale = 1,
+    cf_scale = 1,
+    res_use = 0.6,
+    cond_induce = "cases",
+    save_path = file.path(getwd(), "scpostSims/gettingStarted/")
+)
+
+params %>% head(2)
+```
+
+The "simDataset.MASC" function will simulate datasets and save them as a list containing:
+- Metadata information for each simulated cell
+- p-values from applying MASC to test for differential abundance. We obtain a p-value for each simulated cell state.
+- For larger simulations, we recommend increasing "mc.cores" to make use of multiple cores if possible
+
+```{r}
+suppressWarnings({
+    lapply(seq(nrow(params)), function(x){
+            simDataset.withMASC(
+                save_path = params[x, 'save_path'],
+                rep = params[x, 'rep'],
+                seed = params[x, 'seed'],
+                ncases = params[x, 'ncases'],
+                nctrls = params[x, 'nctrls'],
+                nbatches = params[x, 'nbatches'],
+                batchStructure = batchStructure,
+                ncells = ncells,
+                centroids = raFib_pcEstimates$centroids,
+                pc_cov_list = raFib_pcEstimates$pc_cov_list,
+                batch_vars = raFib_pcEstimates$batch_vars,
+                b_scale = params[x, 'b_scale'],
+                sample_vars = raFib_pcEstimates$sample_vars,
+                s_scale = params[x, 's_scale'],
+                cfcov = raFib_freqEstimates$cfcov,
+                cf_scale = params[x, 'cf_scale'],
+                meanFreqs = raFib_freqEstimates$meanFreq,
+                clus = params[x, 'clus'],
+                fc = params[x, 'fc'],
+                cond_induce = params[x, 'cond_induce'],
+                res_use = params[x, 'res_use'], 
+                mc.cores = 1,
+                clusterData = TRUE,
+                returnPCs = FALSE
+            )
+    })
+})
+```
+
+## Simulate datasets with 20 samples: balanced study design
+
+Now, let's simulate 20-sample datasets with almost the same study design. However, now we'll simulate a more balanced number of cases and controls: 10 cases and 10 controls
+
+```{r}
+set.seed(23)
+
+# Set the number of samples, number of cells per sample, and create batch structure
+ncases <- 10
+nctrls <- 10
+nbatches <- 4
+batchStructure <- distribSamples(ncases = ncases, nctrls = nctrls, nbatches = nbatches)
+ncells <- rep(250, times = ncases + nctrls)
+names(ncells) <- batchStructure$sample_names
+
+params <- createParamTable(
+    nreps = 5,
+    clus = "clus0",
+    fc = 5,
+    ncases = ncases,
+    nctrls = nctrls,
+    nbatches = nbatches,
+    b_scale = 1,
+    s_scale = 1,
+    cf_scale = 1,
+    res_use = 0.6,
+    cond_induce = "cases",
+    save_path = file.path(getwd(), "scpostSims/gettingStarted/")
+)
+
+params %>% head(2)
+```
+
+```{r}
+suppressWarnings({
+    lapply(seq(nrow(params)), function(x){
+            simDataset.withMASC(
+                save_path = params[x, 'save_path'],
+                rep = params[x, 'rep'],
+                seed = params[x, 'seed'],
+                ncases = params[x, 'ncases'],
+                nctrls = params[x, 'nctrls'],
+                nbatches = params[x, 'nbatches'],
+                batchStructure = batchStructure,
+                ncells = ncells,
+                centroids = raFib_pcEstimates$centroids,
+                pc_cov_list = raFib_pcEstimates$pc_cov_list,
+                batch_vars = raFib_pcEstimates$batch_vars,
+                b_scale = params[x, 'b_scale'],
+                sample_vars = raFib_pcEstimates$sample_vars,
+                s_scale = params[x, 's_scale'],
+                cfcov = raFib_freqEstimates$cfcov,
+                cf_scale = params[x, 'cf_scale'],
+                meanFreqs = raFib_freqEstimates$meanFreq,
+                clus = params[x, 'clus'],
+                fc = params[x, 'fc'],
+                cond_induce = params[x, 'cond_induce'],
+                res_use = params[x, 'res_use'], 
+                mc.cores = 1,
+                clusterData = TRUE,
+                returnPCs = FALSE
+            )
+    })
+})
+```
+
+# Get Power
+
+Now that we've simulated data and performed association testing, we can retrieve what our estimated power is. 
+
+We only simulated 5 replicates for each study design; to achieve a more accurate estimate, we recommend running many replicates. Here, we load the results tables from MASC analysis (named "res" in the saved list that was created by the "simDataset.MASC" function)
+
+```{r}
+dir <- file.path(getwd(), "scpostSims/gettingStarted")
+filenames <- list.files(path = dir,
+                        full.names = T,
+                        pattern = '*res') %>% basename
+resTables <- lapply(filenames, function(x){
+        readRDS(file.path(dir, x))[["res"]]
+})
+```
+
+If you induced a fold change in multiple cell states, you can stratify the power results by cell state (instead of aggregate power over all cell states). Here, we only induced a fold change in the HLA-DRA+ fibroblast cell state, so that is not necessary.
+
+```{r}
+getPowerFromRes(
+    resFiles = filenames,
+    resTables = resTables,
+    threshold = 0.05,
+    z = 1.96,
+    stratByClus = FALSE
+)
+```
+
+From these small number of simulations, we estimated that the unbalanced study design would have 0% power. However, by changing the balance of cases and controls so that the study design is more balanced, we see an estimated power of 80%. This example showcases how scPOST can be used to evaluate how changing a study design might affect power.
+
+For more accurate estimates, we recommend running higher numbers of simulations. In Millard *et al.*, we ran 500 simulations for each of these study designs, and estimated 12% power for the unbalanced study design and 60% power for the balanced study design.
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+# Session information
+
+```{r}
+sessionInfo()
+```

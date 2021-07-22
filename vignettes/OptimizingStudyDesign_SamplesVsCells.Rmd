@@ -1,0 +1,373 @@
+---
+title: "Optimizing study designs: samples vs. cells per sample"
+author: Nghia Millard
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Optimizing study designs: samples vs. cells per sample}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Load packages
+
+```{r setup}
+suppressPackageStartupMessages({
+    # imports for analyses
+    library(scpost)
+    library(dplyr)
+    
+    # imports for figures
+    library(ggplot2)
+    library(viridis)
+    library(patchwork)
+})
+
+fig.size <- function (height, width) {
+    options(repr.plot.height = height, repr.plot.width = width)
+}
+```
+- scPOST allows users to change their simulated study design so that they may test how different study design choices affect their power.
+- One of the most common ways to increase power in a study is to increase the size. In scRNA-seq experiments, there a multiple ways to do this. One might imagine a trying to invest time in trying to obtain more samples in their study, or attempting to optimize their protocols to increase their cells per sample yield. 
+
+Here, we'll simulate datasets from a rheumatoid arthritis (RA) dataset described in Zhang F, Wei K, Slowikowski K, Fonseka C, Rao DA, *et al.*, *Nature Immunol* (2020). The metadata and PC embeddings for this batch-corrected dataset is provided in the pre-loaded data: ra_HarmObj.
+
+In this tutorial, we'll:
+- Simulate datasets featuring study designs that contain a range of sample sizes and cells per sample.
+- Visualize how power increases as we increase the study size.
+
+**In this tutorial, we assume you have at least read the "Getting Started" tutorial, which provides more detail in creating scPOST workflows.**
+
+# Step 1: Parameter estimation
+
+```{r}
+ra_freqEstimates <- estimateFreqVar(meta = ra_HarmObj$meta, clusCol = 'harmClus', sampleCol = 'sample', logCov = TRUE)
+ra_pcEstimates <- estimatePCVar(pca = ra_HarmObj$embeddings, npcs = 20, meta = ra_HarmObj$meta, clusCol = 'harmClus',
+                                sampleCol = 'sample', batchCol = 'batch')
+```
+
+# Step 2 & 3: Simulate datasets
+
+Here, we'll simulate a realistic dataset like we did in the "Getting Started" tutorial. However, we'll now vary how many cells per sample are simulated, or vary the sample size (in addition, we scale up the number of batches in the study with the number of samples). For simplicity, we only simulate 2 replicates forr each sample/cells per sample combination - in practice, we recommend simulating more replicates, which is often best done in parallel or by adapting this code into a script for an LSF. 
+
+In this workflow: we created a folder for a particular sample size. We then simulated datasets where we we varied the number of cells per sample for a particular sample size and placed the data into the folder for that sample size. We then created folders for increased samples sizes and placed the relevant simulated datasets into the relevant sample size folder.
+
+**Note: we perform a differential abundance test, MASC, so simulation and testing time will increase as the study size increases.** For simplicity, we only test a range of 50, 100 and 200 cells per sample (many studies will contain a larger cells per sample). 
+
+## 20 samples
+
+```{r}
+set.seed(23)
+
+# Set the number of samples, number of cells per sample, and create batch structure
+ncases <- 10
+nctrls <- 10
+nbatches <- 5
+batchStructure <- distribSamples(ncases = ncases, nctrls = nctrls, nbatches = nbatches)
+
+# set range of cells per sample
+ncells_range <- c(50,100,200)
+ncells <- lapply(seq(ncells_range), function(x){
+    a <- rep(ncells_range[x], times = ncases + nctrls)
+    names(a) <- batchStructure$sample_names
+    return(a)
+})
+
+params <- expand.grid(
+    rep = seq(5), 
+    ncases = ncases, 
+    nctrls = nctrls, 
+    nbatches = nbatches, 
+    b_scale = 1, 
+    s_scale = 1, 
+    cf_scale = 1, 
+    clus = "clus0", 
+    fc = 3, 
+    res_use = 2, 
+    ncells = ncells,
+    save_path = file.path(getwd(), "scpostSims/cellsVsSamples/20samples/")
+)
+params$cond_induce = "cases"
+params$seed <- sample(.Machine$integer.max, size = nrow(params))
+params %>% dim
+params %>% head(2)
+```
+
+```{r}
+suppressWarnings({
+    lapply(seq(nrow(params)), function(x){
+            simDataset.withMASC(
+                save_path = params[x, 'save_path'],
+                rep = params[x, 'rep'],
+                seed = params[x, 'seed'],
+                ncases = params[x, 'ncases'],
+                nctrls = params[x, 'nctrls'],
+                nbatches = params[x, 'nbatches'],
+                batchStructure = batchStructure,
+                ncells = params[x, 'ncells'][[1]],
+                centroids = ra_pcEstimates$centroids,
+                pc_cov_list = ra_pcEstimates$pc_cov_list,
+                batch_vars = ra_pcEstimates$batch_vars,
+                b_scale = params[x, 'b_scale'],
+                sample_vars = ra_pcEstimates$sample_vars,
+                s_scale = params[x, 's_scale'],
+                cfcov = ra_freqEstimates$cfcov,
+                cf_scale = params[x, 'cf_scale'],
+                meanFreqs = ra_freqEstimates$meanFreq,
+                clus = params[x, 'clus'],
+                fc = params[x, 'fc'],
+                cond_induce = params[x, 'cond_induce'],
+                res_use = params[x, 'res_use'], 
+                mc.cores = 1,
+                clusterData = TRUE,
+                returnPCs = FALSE
+            )
+    })
+})
+```
+
+## 40 samples
+
+Again, we create a folder for the 40-sample simulations and place them into that folder. As dataset size increases, the time it takes to simulate and perform differential abundance tests will also increase (differential abundance test tends to comprise the larger portion of computation time).
+
+```{r}
+set.seed(23)
+
+# Set the number of samples, number of cells per sample, and create batch structure
+ncases <- 20
+nctrls <- 20
+nbatches <- 10
+batchStructure <- distribSamples(ncases = ncases, nctrls = nctrls, nbatches = nbatches)
+
+# set range of cells per sample
+ncells_range <- c(50,100,200)
+ncells <- lapply(seq(ncells_range), function(x){
+    a <- rep(ncells_range[x], times = ncases + nctrls)
+    names(a) <- batchStructure$sample_names
+    return(a)
+})
+
+params2 <- expand.grid(
+    rep = seq(5), 
+    ncases = ncases, 
+    nctrls = nctrls, 
+    nbatches = nbatches, 
+    b_scale = 1, 
+    s_scale = 1, 
+    cf_scale = 1, 
+    clus = "clus0", 
+    fc = 3, 
+    res_use = 2, 
+    ncells = ncells,
+    save_path = file.path(getwd(), "scpostSims/cellsVsSamples/40samples/")
+)
+params2$cond_induce = "cases"
+params2$seed <- sample(.Machine$integer.max, size = nrow(params2))
+```
+
+```{r}
+suppressWarnings({
+    lapply(seq(nrow(params2)), function(x){
+            simDataset.withMASC(
+                save_path = params2[x, 'save_path'],
+                rep = params2[x, 'rep'],
+                seed = params2[x, 'seed'],
+                ncases = params2[x, 'ncases'],
+                nctrls = params2[x, 'nctrls'],
+                nbatches = params2[x, 'nbatches'],
+                batchStructure = batchStructure,
+                ncells = params2[x, 'ncells'][[1]],
+                centroids = ra_pcEstimates$centroids,
+                pc_cov_list = ra_pcEstimates$pc_cov_list,
+                batch_vars = ra_pcEstimates$batch_vars,
+                b_scale = params2[x, 'b_scale'],
+                sample_vars = ra_pcEstimates$sample_vars,
+                s_scale = params2[x, 's_scale'],
+                cfcov = ra_freqEstimates$cfcov,
+                cf_scale = params2[x, 'cf_scale'],
+                meanFreqs = ra_freqEstimates$meanFreq,
+                clus = params2[x, 'clus'],
+                fc = params2[x, 'fc'],
+                cond_induce = params2[x, 'cond_induce'],
+                res_use = params2[x, 'res_use'], 
+                mc.cores = 1,
+                clusterData = TRUE,
+                returnPCs = FALSE
+            )
+    })
+})
+```
+
+## 80 samples
+
+Again, we create a folder for the 80-sample simulations and place them into that folder. As dataset size increases, the time it takes to simulate and perform differential abundance tests will also increase (differential abundance test tends to comprise the larger portion of computation time). These simulations took several minutes
+
+```{r}
+set.seed(23)
+
+# Set the number of samples, number of cells per sample, and create batch structure
+ncases <- 40
+nctrls <- 40
+nbatches <- 20
+batchStructure <- distribSamples(ncases = ncases, nctrls = nctrls, nbatches = nbatches)
+
+# set range of cells per sample
+ncells_range <- c(50,100,200)
+ncells <- lapply(seq(ncells_range), function(x){
+    a <- rep(ncells_range[x], times = ncases + nctrls)
+    names(a) <- batchStructure$sample_names
+    return(a)
+})
+
+params3 <- expand.grid(
+    rep = seq(5), 
+    ncases = ncases, 
+    nctrls = nctrls, 
+    nbatches = nbatches, 
+    b_scale = 1, 
+    s_scale = 1, 
+    cf_scale = 1, 
+    clus = "clus0", 
+    fc = 3, 
+    res_use = 2, 
+    ncells = ncells,
+    save_path = file.path(getwd(), "scpostSims/cellsVsSamples/80samples/")
+)
+params3$cond_induce = "cases"
+params3$seed <- sample(.Machine$integer.max, size = nrow(params3))
+```
+
+```{r}
+suppressWarnings({
+    lapply(seq(nrow(params3)), function(x){
+            simDataset.withMASC(
+                save_path = params3[x, 'save_path'],
+                rep = params3[x, 'rep'],
+                seed = params3[x, 'seed'],
+                ncases = params3[x, 'ncases'],
+                nctrls = params3[x, 'nctrls'],
+                nbatches = params3[x, 'nbatches'],
+                batchStructure = batchStructure,
+                ncells = params3[x, 'ncells'][[1]],
+                centroids = ra_pcEstimates$centroids,
+                pc_cov_list = ra_pcEstimates$pc_cov_list,
+                batch_vars = ra_pcEstimates$batch_vars,
+                b_scale = params3[x, 'b_scale'],
+                sample_vars = ra_pcEstimates$sample_vars,
+                s_scale = params3[x, 's_scale'],
+                cfcov = ra_freqEstimates$cfcov,
+                cf_scale = params3[x, 'cf_scale'],
+                meanFreqs = ra_freqEstimates$meanFreq,
+                clus = params3[x, 'clus'],
+                fc = params3[x, 'fc'],
+                cond_induce = params3[x, 'cond_induce'],
+                res_use = params3[x, 'res_use'], 
+                mc.cores = 1,
+                clusterData = TRUE,
+                returnPCs = FALSE
+            )
+    })
+})
+```
+
+# Load simulated datasets and calculate power
+
+```{r}
+dir_20samples <- file.path(getwd(), "scpostSims/cellsVsSamples/20samples/")
+filenames_20samples <- list.files(path = dir_20samples,
+                                  full.names = T) %>% basename
+resTables_20samples <- lapply(filenames_20samples, function(x){
+        readRDS(file.path(dir_20samples, x))[['res']]
+})
+
+power_20samples <- getPowerFromRes(
+    resFiles = filenames_20samples,
+    resTables = resTables_20samples,
+    threshold = 0.05,
+    z = 1.96,
+    stratByClus = FALSE
+)
+resTables_20samples %>% length
+power_20samples
+```
+
+```{r}
+dir_40samples <- file.path(getwd(), "scpostSims/cellsVsSamples/40samples/")
+filenames_40samples <- list.files(path = dir_40samples,
+                                  full.names = T) %>% basename
+resTables_40samples <- lapply(filenames_40samples, function(x){
+        readRDS(file.path(dir_40samples, x))[['res']]
+})
+
+power_40samples <- getPowerFromRes(
+    resFiles = filenames_40samples,
+    resTables = resTables_40samples,
+    threshold = 0.05,
+    z = 1.96,
+    stratByClus = FALSE
+)
+resTables_40samples %>% length
+power_40samples
+```
+
+```{r}
+dir_80samples <- file.path(getwd(), "scpostSims/cellsVsSamples/80samples/")
+filenames_80samples <- list.files(path = dir_80samples,
+                                  full.names = T) %>% basename
+resTables_80samples <- lapply(filenames_80samples, function(x){
+        readRDS(file.path(dir_80samples, x))[['res']]
+})
+
+power_80samples <- getPowerFromRes(
+    resFiles = filenames_80samples,
+    resTables = resTables_80samples,
+    threshold = 0.05,
+    z = 1.96,
+    stratByClus = FALSE
+)
+resTables_80samples %>% length
+power_80samples
+```
+
+## Visualize power as study size increases
+
+```{r}
+comb <- rbind.data.frame(power_20samples, power_40samples, power_80samples)
+comb$Power <- 100 * comb$masc_power
+comb$CI <- 100 * comb$masc_power_ci
+comb %>% head
+# saveRDS(comb, file.path(getwd(), "samplesVsCells.rds")) # save for later
+```
+
+```{r, fig.height = 5, fig.width = 7}
+fig.size(5,7)
+comb <- readRDS(file.path(getwd(), "samplesVsCells.rds"))
+comb %>% sample_frac %>%
+    ggplot(aes(x = ncells, y = nsamples, fill = Power)) +
+    geom_tile() +
+    scale_fill_viridis(limits = c(0,100)) +
+    labs(title = 'Samples vs. cells per sample', y = 'Number of samples', x = 'Cells per sample', fill = 'Power (%)') +
+    geom_hline(yintercept = 0.05, col = 'black') +
+    theme(plot.title = element_text(size = 24, face = 'bold'),
+          axis.title.x = element_text(size = 20), axis.title.y = element_text(size = 20),
+          axis.text.x = element_text(size = 18), axis.text.y = element_text(size = 18),
+          legend.title = element_text(size = 18), legend.text = element_text(size = 18)) +
+    scale_x_discrete(position = "top") +
+    scale_y_discrete(position = "left") 
+```
+
+As the results show, increasing the number of cells per sample within the same sample size did not tend to noticeably increase power in this context (RA). In contrast, increasing the number of samples in the study dramatically increased the power. 
+
+Performing the same analysis over several datasets yielded similar results, where increasing the number of samples provided more significant power gains than increasing the number of cells per sample. More results for wider ranges and different fold changes can be found in the scPOST manuscript.
+
+# Session information
+
+```{r}
+sessionInfo()
+```

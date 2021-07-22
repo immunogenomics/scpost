@@ -1,0 +1,363 @@
+---
+title: "Exploring multiplexing designs"
+author: Nghia Millard
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Exploring multiplexing designs}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Load packages
+
+```{r}
+suppressPackageStartupMessages({
+    # imports for analyses
+    library(scpost)
+    library(dplyr)
+    
+    # imports for figures
+    library(ggplot2)
+    library(RColorBrewer)
+    library(patchwork)
+})
+
+fig.size <- function (height, width) {
+    options(repr.plot.height = height, repr.plot.width = width)
+}
+```
+
+# Objective: Estimate how power changes with different batch multiplexing study designs
+
+- scPOST allows users to change their simulated study design so that they may test how different study design choices affect their power.
+- An important aspect of scRNA-seq experiments involves determining how to run the experiments. If the study size is large enough, samples may need to be assayed in batches, which introduces batch effects. 
+- Batch effects can potentially reduce power. Assaying several samples in the same batch (multiplexing) is a standard part of multi-sample experiments. Here, we explore how scPOST can be used to evaluate the performance of different multiplexing schemes
+
+We'll simulate datasets from a rheumatoid arthritis (RA) dataset described in Zhang F, Wei K, Slowikowski K, Fonseka C, Rao DA, *et al.*, *Nature Immunol* (2020). Here, we use the dataset in its non-batch-corrected state, so that the input dataset contains batch effects (without batch effects, the differences in power between sequential and multiplexed study designs are similar). The metadata and PC embeddings for this non-batch-corrected dataset is provided in the pre-loaded data: ra_PreHarmObj.
+
+In this tutorial, we'll:
+- Simulate datasets featuring study designs with different multiplexing schemes
+- Visualize how power changes with different multiplexing schemes
+
+**In this tutorial, we assume you have at least read the "Getting Started" tutorial, which provides more detail in creating scPOST workflows.**
+
+# Step 1: Parameter estimation
+
+```{r}
+ra_freqEstimates <- estimateFreqVar(meta = ra_PreHarmObj$meta, clusCol = 'preHarmClus', sampleCol = 'sample', logCov = TRUE)
+ra_pcEstimates <- estimatePCVar(pca = ra_PreHarmObj$embeddings, npcs = 20, meta = ra_PreHarmObj$meta, clusCol = 'preHarmClus',
+                                sampleCol = 'sample', batchCol = 'batch')
+```
+
+# Step 2 & 3: Simulate datasets
+
+We'll simulate 3 different multiplexing designs. First, we created folders for each design that we will place the simulations into. We'll explore:
+
+1. A non-multiplexed sequential study design where each sample is run in its own batch
+2. A standard multiplexed study design where multiple samples are run in the same batch (4 samples per batch)
+3. An alternative multiplexing study design wehere samples a split into sub-samples, which are then placed into different batches (see figure in this section)
+
+## Sequential 
+
+Let's first simulate a 20-sample study with a simple design. We'll simulate for each sample to be run **sequentially** - one sample for one batch. This is not usually the standard design for modern scRNA-seq experiments, as multiplexing helps reduce cost. However, we show the results for this design as demonstration in order to compare.
+
+```{r}
+set.seed(23)
+
+# Set the number of samples, number of cells per sample, and create sequential batch structure
+ncases <- 20
+nctrls <- 20
+nbatches <- ncases + nctrls
+batchStructure <- distribSamplePerBatch(ncases = ncases, nctrls = nctrls, nbatches = nbatches)
+ncells <- rep(100, times = ncases + nctrls)
+names(ncells) <- batchStructure$sample_names
+
+batchStructure %>% str(1)
+
+params <- createParamTable(
+    nreps = 10,
+    clus = "clus0",
+    fc = 2,
+    ncases = ncases,
+    nctrls = nctrls,
+    nbatches = nbatches,
+    b_scale = 1,
+    s_scale = 1,
+    cf_scale = 1,
+    res_use = 2,
+    cond_induce = "cases",
+    save_path = file.path(getwd(), "scpostSims//multiplexing/sequential/")
+)
+
+params %>% head(2)
+```
+
+```{r}
+suppressWarnings({
+    lapply(seq(nrow(params)), function(x){
+            simDataset.withMASC(
+                save_path = params[x, 'save_path'],
+                rep = params[x, 'rep'],
+                seed = params[x, 'seed'],
+                ncases = params[x, 'ncases'],
+                nctrls = params[x, 'nctrls'],
+                nbatches = params[x, 'nbatches'],
+                batchStructure = batchStructure,
+                ncells = ncells,
+                centroids = ra_pcEstimates$centroids,
+                pc_cov_list = ra_pcEstimates$pc_cov_list,
+                batch_vars = ra_pcEstimates$batch_vars,
+                b_scale = params[x, 'b_scale'],
+                sample_vars = ra_pcEstimates$sample_vars,
+                s_scale = params[x, 's_scale'],
+                cfcov = ra_freqEstimates$cfcov,
+                cf_scale = params[x, 'cf_scale'],
+                meanFreqs = ra_freqEstimates$meanFreq,
+                clus = params[x, 'clus'],
+                fc = params[x, 'fc'],
+                cond_induce = params[x, 'cond_induce'],
+                res_use = params[x, 'res_use'], 
+                mc.cores = 1,
+                clusterData = TRUE,
+                returnPCs = FALSE
+            )
+    })
+})
+```
+
+## Multiplexed
+
+We now simulate a multiplexed study design, where the 20 samples are split into 5 batches (4 samples per batch). This is typically the format modern scRNA-seq experiments are run. 
+
+**Note: if you wish to slightly change the batch structure, you may edit the "batches" element of the batchStructure variable, which contains the placement of which samples are placed into which batch**
+
+```{r}
+set.seed(23)
+
+# Set the number of samples, number of cells per sample, and create sequential batch structure
+ncases <- 20
+nctrls <- 20
+nbatches <- 5
+batchStructure <- distribSamples(ncases = ncases, nctrls = nctrls, nbatches = nbatches)
+ncells <- rep(100, times = ncases + nctrls)
+names(ncells) <- batchStructure$sample_names
+
+batchStructure %>% str
+
+params2 <- createParamTable(
+    nreps = 10,
+    clus = "clus0",
+    fc = 2,
+    ncases = ncases,
+    nctrls = nctrls,
+    nbatches = nbatches,
+    b_scale = 1,
+    s_scale = 1,
+    cf_scale = 1,
+    res_use = 2,
+    cond_induce = "cases",
+    save_path = file.path(getwd(), "scpostSims//multiplexing/multi/")
+)
+```
+
+```{r}
+suppressWarnings({
+    lapply(seq(nrow(params2)), function(x){
+            simDataset.withMASC(
+                save_path = params2[x, 'save_path'],
+                rep = params2[x, 'rep'],
+                seed = params2[x, 'seed'],
+                ncases = params2[x, 'ncases'],
+                nctrls = params2[x, 'nctrls'],
+                nbatches = params2[x, 'nbatches'],
+                batchStructure = batchStructure,
+                ncells = ncells,
+                centroids = ra_pcEstimates$centroids,
+                pc_cov_list = ra_pcEstimates$pc_cov_list,
+                batch_vars = ra_pcEstimates$batch_vars,
+                b_scale = params2[x, 'b_scale'],
+                sample_vars = ra_pcEstimates$sample_vars,
+                s_scale = params2[x, 's_scale'],
+                cfcov = ra_freqEstimates$cfcov,
+                cf_scale = params2[x, 'cf_scale'],
+                meanFreqs = ra_freqEstimates$meanFreq,
+                clus = params2[x, 'clus'],
+                fc = params2[x, 'fc'],
+                cond_induce = params2[x, 'cond_induce'],
+                res_use = params2[x, 'res_use'], 
+                mc.cores = 1,
+                clusterData = TRUE,
+                returnPCs = FALSE
+            )
+    })
+})
+```
+
+## Alternative multiplexing design
+
+We now simulate an alternative multiplexed study design. scRNA-seq experiments are costly, which may limit the capacity for investigators to experiment with different batch multiplexing structures. scPOST allows investigators to simulate how different structures may benefit their power. 
+
+For this alternative multiplxed study design, we take samples and split them into sub-samples. These sub-samples are then subsequently placed into different batches, so several batches in the study contain sub-samples from the same parent sample (see figure). This has the consequence of artificially increasing your effective sample size, with the trade-off of decreasing the number of cells per "sample". However, as we show in the scPOST manuscript and the "Optimizing study designs: samples vs. cells per sample" tutorial, increasing the number of samples in your study can yield dramatic increases to your power.
+
+![Alternative multiplexing](images/Power_Suppl_MultiplexDesign.png){width=85%}
+
+```{r}
+set.seed(23)
+
+# Set the number of samples, number of cells per sample, and create sequential batch structure
+ncases <- 20
+nctrls <- 20
+nbatches <- 5
+batchStructure <- distribSplitSamples(ncases = ncases, nctrls = nctrls, 
+                                      nbatches = nbatches, numSubsamples = 4)
+# Reduce number of cells per sample so that they the total number of cells is the same as the previous study designs
+ncells <- rep(25, times = ncases + nctrls)
+names(ncells) <- batchStructure$sample_names
+
+batchStructure %>% str
+
+params3 <- createParamTable(
+    nreps = 10,
+    clus = "clus0",
+    fc = 2,
+    ncases = ncases,
+    nctrls = nctrls,
+    nbatches = nbatches,
+    b_scale = 1,
+    s_scale = 1,
+    cf_scale = 1,
+    res_use = 2,
+    cond_induce = "cases",
+    save_path = file.path(getwd(), "scpostSims//multiplexing/alternativeMulti/")
+)
+```
+
+```{r}
+suppressWarnings({
+    lapply(seq(nrow(params3)), function(x){
+            simDataset.withMASC(
+                save_path = params3[x, 'save_path'],
+                rep = params3[x, 'rep'],
+                seed = params3[x, 'seed'],
+                ncases = params3[x, 'ncases'],
+                nctrls = params3[x, 'nctrls'],
+                nbatches = params3[x, 'nbatches'],
+                batchStructure = batchStructure,
+                ncells = ncells,
+                centroids = ra_pcEstimates$centroids,
+                pc_cov_list = ra_pcEstimates$pc_cov_list,
+                batch_vars = ra_pcEstimates$batch_vars,
+                b_scale = params3[x, 'b_scale'],
+                sample_vars = ra_pcEstimates$sample_vars,
+                s_scale = params3[x, 's_scale'],
+                cfcov = ra_freqEstimates$cfcov,
+                cf_scale = params3[x, 'cf_scale'],
+                meanFreqs = ra_freqEstimates$meanFreq,
+                clus = params3[x, 'clus'],
+                fc = params3[x, 'fc'],
+                cond_induce = params3[x, 'cond_induce'],
+                res_use = params3[x, 'res_use'], 
+                mc.cores = 1,
+                clusterData = TRUE,
+                returnPCs = FALSE
+            )
+    })
+})
+```
+
+# Load simulated datasets and calculate power
+
+```{r}
+dir_sequential <- file.path(getwd(), "scpostSims/multiplexing//sequential")
+filenames_sequential <- list.files(path = dir_sequential,
+                                  full.names = T) %>% basename
+resTables_sequential <- lapply(filenames_sequential, function(x){
+        readRDS(file.path(dir_sequential, x))[['res']]
+})
+
+power_sequential <- getPowerFromRes(
+    resFiles = filenames_sequential,
+    resTables = resTables_sequential,
+    threshold = 0.05,
+    z = 1.96,
+    stratByClus = FALSE
+)
+resTables_sequential %>% length
+power_sequential
+```
+
+```{r}
+dir_multi <- file.path(getwd(), "scpostSims/multiplexing//multi")
+filenames_multi <- list.files(path = dir_multi,
+                                  full.names = T) %>% basename
+resTables_multi <- lapply(filenames_multi, function(x){
+        readRDS(file.path(dir_multi, x))[['res']]
+})
+
+power_multi <- getPowerFromRes(
+    resFiles = filenames_multi,
+    resTables = resTables_multi,
+    threshold = 0.05,
+    z = 1.96,
+    stratByClus = FALSE
+)
+resTables_multi %>% length
+power_multi
+```
+
+```{r}
+dir_altMulti <- file.path(getwd(), "scpostSims/multiplexing/alternativeMulti")
+filenames_altMulti <- list.files(path = dir_altMulti,
+                                  full.names = T) %>% basename
+resTables_altMulti <- lapply(filenames_altMulti, function(x){
+        readRDS(file.path(dir_altMulti, x))[['res']]
+})
+
+power_altMulti <- getPowerFromRes(
+    resFiles = filenames_altMulti,
+    resTables = resTables_altMulti,
+    threshold = 0.05,
+    z = 1.96,
+    stratByClus = FALSE
+)
+resTables_altMulti %>% length
+power_altMulti
+```
+
+```{r}
+comb <- rbind.data.frame(power_sequential, power_multi, power_altMulti)
+comb$Power <- 100 * comb$masc_power
+comb$CI <- 100 * comb$masc_power_ci
+comb$context <- factor(c("Sequential", "Multiplexed", "Alternative multiplexed"),
+                       levels = c("Sequential", "Multiplexed", "Alternative multiplexed"))
+plotPal <- colorRampPalette(brewer.pal(9, 'Set1'))
+```
+
+```{r, fig.height = 5, fig.width = 7}
+fig.size(5,7)
+comb %>% sample_frac %>%
+    ggplot(aes(x = context, y = Power, fill = context)) +
+    geom_bar(stat = 'identity', position = position_dodge()) +
+    labs(title = 'Multiplexing designs', x = 'Context', col = 'Context') +
+    scale_fill_manual(values = plotPal(10), name = 'Context') +
+    geom_hline(yintercept = 5, col = 'purple', size = 1.2, linetype = 2) +
+    theme_classic() 
+```
+
+In this experimental context and with these parameters, the altnerative multiplexing study design actually provides noticeable power benefits. Generally, we've found that at normal/larger study sizes, the standard multiplexing and alternative multiplexing study designs tend to perform similar in terms of power. Furthermore, both multiplexing schemes yield more power than the sequential scheme. Finally, as expected, as batch effects increase, the benefits of multiplexing increase.
+
+More results can be found in the scPOST manuscript, which provide more comparisons between the sequential scheme and the alternative multiplexing scheme.
+
+# Session information
+
+```{r}
+sessionInfo()
+```
+

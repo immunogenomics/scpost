@@ -1,0 +1,323 @@
+---
+title: "Visualizing simulated data"
+author: Nghia Millard
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Visualizing simulated data}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Load packages
+
+```{r setup}
+suppressPackageStartupMessages({
+    # imports for analyses
+    library(scpost)
+    library(dplyr)
+    
+    # imports for figures
+    library(ggplot2)
+    library(RColorBrewer)
+    library(patchwork)
+})
+
+fig.size <- function (height, width) {
+    options(repr.plot.height = height, repr.plot.width = width)
+}
+```
+
+## Minimum input
+
+To simulate data, scPOST uses an input prototype dataset (such as public or pilot data). scPOST estimates two types of variation often found in multi-sample single-cell data:
+
+1. Variation in a cell state's frequency across samples (Cell state frequency variation)
+1. Variation in a cell state's gene expression. We estimate and simulate gene expression with principal components (PCs), because PCs are a summary of gene expression that also takes into account gene covariation. This also reduces computational burden.
+
+scPOST requires the following inputs for each cell:
+
+1. Cell state annotations (in single-cell these are often obtained from clustering algorithms, such as the Louvain method)
+1. Sample annotations (the sample each cell comes from)
+1. Batch annotations (if no batch information for the data is available, it is sufficient to treat every sample as it's own batch)
+1. Principal component values (these are obtained from PCA)
+
+Let's take a look at a prototype dataset that we will apply scPOST to.
+
+```{r}
+ra_HarmObj$meta %>% str
+ra_HarmObj$embeddings %>% head(2)
+```
+
+In the metadata, we have:
+
+- Cell state annotations (harmClus)
+- Sample annotations (sample)
+- Batch annotations (batch)
+
+In the embeddings, we have:
+
+- Principal component values for 20 PCs
+
+# Step 1: Parameter estimation
+
+```{r}
+ra_freqEstimates <- estimateFreqVar(meta = ra_HarmObj$meta, clusCol = 'harmClus', sampleCol = 'sample', logCov = TRUE)
+ra_pcEstimates <- estimatePCVar(pca = ra_HarmObj$embeddings, npcs = 20, meta = ra_HarmObj$meta, clusCol = 'harmClus',
+                                sampleCol = 'sample', batchCol = 'batch')
+```
+
+# Step 2: Simulate dataset
+
+Here, we'll simulate a realistic dataset like we did in the "Getting Started" tutorial. However, we now use the simDataset.base function, which simulates a dataset based on the estimated parameters; it does not perform association testing like the simDataset.withMASC function. 
+
+```{r}
+set.seed(23)
+
+# Set the number of samples, number of cells per sample, and create batch structure
+ncases <- 17
+nctrls <- 4
+nbatches <- 4
+batchStructure <- distribSamples(ncases = ncases, nctrls = nctrls, nbatches = nbatches)
+ncells <- rep(250, times = ncases + nctrls)
+names(ncells) <- batchStructure$sample_names
+```
+
+Next, we'll set up a parameter table with the "createParamTable" function that we'll use to run multiple simulations: 
+- We'll simulate realistic levels of variation by setting "b_scale", "s_scale", and "cf_scale" equal to 1. 
+- We'll won't induce a fold-change, so we'll set fc = 1, and just choose a random cluster to to induce the fold-change into
+- We'll set up a folder where we will save our results
+
+```{r}
+params <- createParamTable(
+    nreps = 1,
+    clus = "clus0",
+    fc = 1,
+    ncases = ncases,
+    nctrls = nctrls,
+    nbatches = nbatches,
+    b_scale = 1,
+    s_scale = 1,
+    cf_scale = 1,
+    res_use = 0.6,
+    cond_induce = "cases",
+    save_path = file.path(getwd(), "scpostSims/retrievingSimulations")
+)
+
+params %>% head(2)
+```
+
+Here, we want to return the dataset PC embeddings, so we set the "returnPCs" argument to TRUE. We do not need to re-cluster the simulated data, so we set the "clusterData" argument to FALSE.
+
+```{r}
+suppressWarnings({
+    lapply(seq(nrow(params)), function(x){
+            simDataset.base(
+                save_path = params[x, 'save_path'],
+                rep = params[x, 'rep'],
+                seed = params[x, 'seed'],
+                ncases = params[x, 'ncases'],
+                nctrls = params[x, 'nctrls'],
+                nbatches = params[x, 'nbatches'],
+                batchStructure = batchStructure,
+                ncells = ncells,
+                centroids = ra_pcEstimates$centroids,
+                pc_cov_list = ra_pcEstimates$pc_cov_list,
+                batch_vars = ra_pcEstimates$batch_vars,
+                b_scale = params[x, 'b_scale'],
+                sample_vars = ra_pcEstimates$sample_vars,
+                s_scale = params[x, 's_scale'],
+                cfcov = ra_freqEstimates$cfcov,
+                cf_scale = params[x, 'cf_scale'],
+                meanFreqs = ra_freqEstimates$meanFreq,
+                clus = params[x, 'clus'],
+                fc = params[x, 'fc'],
+                cond_induce = params[x, 'cond_induce'],
+                res_use = params[x, 'res_use'], 
+                mc.cores = 1,
+                clusterData = FALSE,
+                returnPCs = TRUE
+            )
+    })
+})
+```
+
+# Retrieve simulated dataset
+
+```{r}
+dir <- file.path(getwd(), "scpostSims/retrievingSimulations/")
+sim_filenames <- list.files(path = dir,
+                            full.names = T) %>% basename
+sim_data <- lapply(sim_filenames, function(x){
+        readRDS(file.path(dir, x))
+})
+sim_data[[1]] %>% str
+```
+
+From the saved data, we see that we simulated 5,252 cells. Let's visualize how the PC embeddings of our simulated dataset compare to the original data
+
+Now let's combine our simulated data with the real data
+
+```{r}
+ra_pcs <- cbind.data.frame(ra_HarmObj$meta, ra_HarmObj$embeddings) %>% dplyr::select(c(harmClus, sample, batch,
+                                                                                        paste0("PC", 1:20)))
+sim_pcs <- cbind.data.frame(sim_data[[1]]$meta, sim_data[[1]]$new_pcs) %>% dplyr::select(-condition)
+colnames(ra_pcs) <- c("cellstate", "sample", "batch", paste0("PC", 1:20))
+colnames(sim_pcs) <- c("cellstate", "sample", "batch", paste0("PC", 1:20))
+
+comb_pcs <- rbind.data.frame(ra_pcs, sim_pcs)
+comb_pcs$dataset <- c(rep("Real", nrow(ra_pcs)), rep("Sim", nrow(sim_pcs)))
+
+comb_pcs %>% head(2)
+```
+
+## Visualize the real input RA dataset with the simulated dataset
+
+```{r}
+umap_comb <- uwot::umap(comb_pcs %>% dplyr::select(paste0("PC", 1:20)))
+colnames(umap_comb) <- paste0("UMAP", 1:2)
+plot_comb <- cbind.data.frame(umap_comb, comb_pcs)
+```
+
+```{r, fig.height = 5, fig.width = 7}
+# create color palette
+plotPal <- colorRampPalette(brewer.pal(9, 'Set1'))
+
+fig.size(5,7)
+plot_comb %>% sample_frac %>% ggplot(aes(x = UMAP1, y = UMAP2, col = cellstate)) +
+    geom_point(size = 0.6) +
+    theme_classic() +
+    labs(title = 'Real and simulated RA datasets in UMAP space', col = 'Cell state') +
+    scale_color_manual(values = plotPal(plot_comb$cellstate %>% unique %>% length)) +
+    guides(col = guide_legend(override.aes = list(stroke = 1, alpha = 1, shape = 19, size = 4))) +
+    facet_wrap(~dataset)
+```
+
+It looks like the simulated cells were placed into a similar PC space when compared to the real data. A notable difference between the simulated dataset and the input real data is the number of each state. This is because the simulated dataset also generates cell state frequency distributions for each simulated sample, which will be different from the real data. For example, our simulated dataset generated more cells as cell state 2, but fewer cells as cell state 3.
+
+```{r}
+plot_comb %>% filter(dataset == 'Real') %>% pull(cellstate) %>% table
+plot_comb %>% filter(dataset == 'Sim') %>% pull(cellstate) %>% table
+```
+
+# Retrieving the observed fold-change in a simulated dataset
+
+scPOST simulates cell state frequency distributions for each simulated sample. Because our model includes variance in these distributions, the actual observed fold-change may be slightly different from the fold-change we wanted to induce. This is how cell state frequency variation contributes to a decrease in power; if the variance is high, random sampling can mask the true fold-change by resulting in a smaller observed fold-change.
+
+Let's simulate a few datasets with no cell state frequency variation, and then a few with realistic levels of cell state frequency variation. Then, we can check what the observed fold-change is. We do this by setting "cf_scale" to 0. A realistic level of variation (as estimated from the real data) would be "cf_scale" set to 1.
+
+```{r}
+ set.seed(23)
+
+# Set the number of samples, number of cells per sample, and create batch structure
+ncases <- 10
+nctrls <- 10
+nbatches <- 4
+batchStructure <- distribSamples(ncases = ncases, nctrls = nctrls, nbatches = nbatches)
+ncells <- rep(250, times = ncases + nctrls)
+names(ncells) <- batchStructure$sample_names
+```
+
+```{r}
+params <- createParamTable(
+    nreps = 5,
+    clus = "clus0",
+    fc = 2,
+    ncases = ncases,
+    nctrls = nctrls,
+    nbatches = nbatches,
+    b_scale = 1,
+    s_scale = 1,
+    cf_scale = c(0,1),
+    res_use = 0.6,
+    cond_induce = "cases",
+    save_path = file.path(getwd(), "scpostSims/retrievingCFscale")
+)
+
+params %>% dim
+params %>% head(2)
+```
+
+```{r}
+suppressWarnings({
+    lapply(seq(nrow(params)), function(x){
+            simDataset.base(
+                save_path = params[x, 'save_path'],
+                rep = params[x, 'rep'],
+                seed = params[x, 'seed'],
+                ncases = params[x, 'ncases'],
+                nctrls = params[x, 'nctrls'],
+                nbatches = params[x, 'nbatches'],
+                batchStructure = batchStructure,
+                ncells = ncells,
+                centroids = ra_pcEstimates$centroids,
+                pc_cov_list = ra_pcEstimates$pc_cov_list,
+                batch_vars = ra_pcEstimates$batch_vars,
+                b_scale = params[x, 'b_scale'],
+                sample_vars = ra_pcEstimates$sample_vars,
+                s_scale = params[x, 's_scale'],
+                cfcov = ra_freqEstimates$cfcov,
+                cf_scale = params[x, 'cf_scale'],
+                meanFreqs = ra_freqEstimates$meanFreq,
+                clus = params[x, 'clus'],
+                fc = params[x, 'fc'],
+                cond_induce = params[x, 'cond_induce'],
+                res_use = params[x, 'res_use'], 
+                mc.cores = 1,
+                clusterData = FALSE,
+                returnPCs = TRUE
+            )
+    })
+})
+```
+
+## Retrieve simulated datasets
+
+```{r}
+dir <- file.path(getwd(), "scpostSims/retrievingCFscale/")
+sim_filenames <- list.files(path = dir,
+                            full.names = T,) %>% basename
+sim_data <- lapply(sim_filenames, function(x){
+        readRDS(file.path(dir, x))[["meta"]]
+})
+```
+
+Now let's see what our observed fold-changes are. We induced a fold-change of 2 in cell state 0. When cf_scale = 0 (zero cell state frequency variation), we should see an exact fold-change of 2 in cell state 0, while we'll see some variance when cf_scale = 1
+
+```{r, fig.height = 4, fig.width = 6}
+getFC <- function(meta_data, cluster){
+    tbl <- meta_data %>% subset(cellstate == paste0(cluster))
+    tbl %<>% group_by(condition) %>% summarize(freq = dplyr::n(), .groups = 'drop')
+    fc <- tbl %>% summarize(obs_fc = freq[condition == 'case'] / freq[condition == 'ctrl'], .groups = 'drop') %>% dplyr::pull(obs_fc)
+    return(fc)
+}
+
+obs_fcs <- data.frame(obs_fc = sapply(sim_data, function(x){
+    getFC(x, cluster = 0)
+}))
+obs_fcs$cf_scale <- c(rep(0, 5), rep(1, 5))
+
+mean_fcs <- obs_fcs %>% group_by(cf_scale) %>% summarise(mean_obs = mean(obs_fc), sd = sd(obs_fc), .groups = 'drop') %>% data.frame
+mean_fcs$cf_scale <- factor(mean_fcs$cf_scale, levels = c(0,1))
+
+fig.size(4,6)
+mean_fcs %>% ggplot(aes(x = cf_scale, y = mean_obs)) +
+    geom_bar(stat = 'identity', fill = 'gray') +
+    geom_errorbar(aes(ymin = mean_obs - sd, ymax = mean_obs + sd), width = 0.2) +
+    theme_classic() +
+    labs(x = 'cf_scale', y = 'Observed fold-change')
+```
+
+As expected, when cf_scale = 0, there is no variance. However, when we have a realistic level of cell state frequency variation, we do see some variance. If variance is higher, it could result in decreased power, because the observed fold-change might be lower than the true fold-change. Over more replicates, our average observed fold-changes would begin to converge to 2.
+
+# Session information
+
+```{r}
+sessionInfo()
+```
